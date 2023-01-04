@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use super::*;
+use std::collections::{HashMap};
+use super::{Field, Move, State, Key, Piece};
 
 /* 
     Generates all valid Moves that can be applied to a given state. 
@@ -37,7 +37,6 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
                     if m.apply_key(&d, &state.field, piece, hold) {
                         // Add to map if generates unique field.
                         m.apply_key(&Key::HardDrop, &state.field, piece, hold);
-                        println!("{:?}", m);
                         let field = state.field.apply_move(&m, piece, hold);
                         if !hash.contains_key(&field) {
                             hash.insert(field, m.clone());
@@ -51,4 +50,50 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
         }
     }
     hash
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gen_moves_test () {
+        let mut state: State = State::new();
+        state.pieces.push_back(Piece::Z);
+        state.pieces.push_back(Piece::I);
+        state.pieces.push_back(Piece::O);
+        state.pieces.push_back(Piece::L);
+        state.pieces.push_back(Piece::T);
+        state.hold = Piece::None;
+
+        state.field.m = [   
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_1,
+            0b0_0_0_0_0_0_0_1_1_1,
+        ];
+    
+        let map = gen_moves(&state);
+        println!("-------");
+        for (field, _) in map.iter() { 
+            println!("{}", field);
+        }
+    }
 }

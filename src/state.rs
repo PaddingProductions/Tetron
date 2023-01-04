@@ -1,4 +1,5 @@
-use super::*;
+use std::collections::VecDeque;
+use super::{Props, Field, Piece, Move};
 
 pub struct State {
     pub pieces: VecDeque<Piece>,
@@ -30,11 +31,12 @@ impl State {
         let mut hold: Piece = self.hold;
         if mov.hold {
             hold = pieces.pop_front().unwrap();
-            if self.hold != Piece::None {
+            if self.hold == Piece::None {
                 pieces.pop_front();
             }
+        } else {
+            pieces.pop_front();
         }
-        pieces.pop_front();
 
         Self {
             field,

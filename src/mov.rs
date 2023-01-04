@@ -1,4 +1,4 @@
-use super::*;
+use super::{Key, Piece, Field};
 
 #[derive(Clone, Debug)]
 pub struct Move {
@@ -6,7 +6,7 @@ pub struct Move {
     pub y: i8,
     pub r: u8,
     pub s: u8,
-    pub kick: bool,
+    pub tspin: bool,
     pub hold: bool
 }
 
@@ -17,7 +17,7 @@ impl Move {
             y: 1,
             r: 0,
             s: 0,
-            kick: false,
+            tspin: false,
             hold: false,
         }
     }
@@ -79,5 +79,43 @@ impl Move {
             _ => return false,
         }; 
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test] 
+    fn move_apply_key_test () {
+        let field: Field = Field::new();
+        let mut mov: Move = Move::new();
+        let p: Piece = Piece::L;
+        let h: Piece = Piece::J;
+
+        mov.apply_key(&Key::Cw, &field, &p, &h);
+        mov.apply_key(&Key::Left, &field, &p, &h);
+        mov.apply_key(&Key::Left, &field, &p, &h);
+        mov.apply_key(&Key::Left, &field, &p, &h);
+        //mov.apply_key(&Key::Left, &field, &p, &h);
+
+        mov.apply_key(&Key::HardDrop, &field, &p, &h);
+
+        assert_eq!(mov.x, 1);
+        assert_eq!(mov.y, 18);
+        assert_eq!(mov.r, 1);
+    }
+
+    #[test]
+    fn move_drop_test () {
+        let field: Field = Field::new();
+        let mut mov: Move = Move::new();
+        let p: Piece = Piece::L;
+
+        mov.apply_key(&Key::HardDrop, &field, &p, &p);
+
+        assert_eq!(mov.x, 4);
+        assert_eq!(mov.y, 19);
+        assert_eq!(mov.r, 0);
     }
 }

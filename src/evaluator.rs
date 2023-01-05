@@ -1,52 +1,29 @@
-use super::{Clear, State, Field, Props};
-
-macro_rules! dev_log {
-    ($s:literal) => {
-        if cfg!(test) {
-            print!($s);
-        }
-    };
-    (ln, $s:literal) => {
-        if cfg!(test) {
-            println!($s);
-        }
-    };
-    ($s:literal, $($a: expr),* ) => {
-        if cfg!(test) {
-            print!(
-                $s,
-                $($a,)*
-            );
-        }
-    };
-    (ln, $s:literal, $($a: expr),* ) => {
-        if cfg!(test) {
-            println!(
-                $s,
-                $($a,)*
-            );
-        }
-    };
-}
-
+use super::{State, Field, Props};
+use super::mac::*;
 
 struct Weights {
     hole: f32,
     h_local_deviation: f32,
     h_global_deviation: f32,
     average_h: f32,
+    sum_attack: f32, 
+    sum_downstack: f32,
     attack: f32, 
+    downstack: f32,
     no_attack_clear: f32,
 }
 impl Weights {
     pub fn norm () -> Self {
         Self {
-            hole: -50.0,
-            h_local_deviation: -5.0,
-            h_global_deviation: -10.0,
-            average_h :-10.0,
-            attack: 30.0,
-            no_attack_clear: -35.0,
+            hole: -100.0,
+            h_local_deviation: -7.0,
+            h_global_deviation: -7.0,
+            average_h :-5.0,
+            sum_attack: 30.0,
+            sum_downstack: 20.0,
+            attack: 35.0,
+            downstack: 25.0,
+            no_attack_clear: -50.0,
         }
     }
 }
@@ -61,6 +38,7 @@ pub fn evaluate (state: &State) -> f32 {
     // Get weights
     let weights = Weights::norm();
 
+    dev_log!("{}", state);
     // get all column heights
     {
         let mut cache_y: usize = 0;
@@ -130,37 +108,44 @@ pub fn evaluate (state: &State) -> f32 {
     }
     // clear and attack
     {
-        let att = match p.clear {
-            Clear::None => 0,
-            Clear::Clear1 => 0,
-            Clear::Clear2 => 1,
-            Clear::Clear3 => 2,
-            Clear::Clear4 => 4,
-            Clear::Tspin1 => 2,
-            Clear::Tspin2 => 4,
-            Clear::Tspin3 => 6,
-        };
-        let clear = match p.clear {
-            Clear::None => 0,
-            Clear::Clear1 => 1,
-            Clear::Clear2 => 2,
-            Clear::Clear3 => 3,
-            Clear::Clear4 => 4,
-            Clear::Tspin1 => 1,
-            Clear::Tspin2 => 2,
-            Clear::Tspin3 => 3,
-        };
-        score += att as f32 * weights.attack;
-            
-        if att == 0 {
-            score += clear as f32 * weights.no_attack_clear;
+        dev_log!(ln, "sum_atk: {}, sum_ds: {}", p.sum_atk, p.sum_ds);
+        score += p.sum_atk as f32 * weights.sum_attack;
+        score += p.sum_ds as f32 * weights.sum_downstack;
+        score += p.atk as f32 * weights.attack;
+        score += p.ds as f32 * weights.downstack;
+
+        if p.ds > 0 && p.atk == 0 {
+            score += p.ds as f32 * weights.no_attack_clear;
         }
     }
+    dev_log!(ln, "final score: \x1b[1m{}\x1b[0m", score);
     return score;
 }
 
-pub fn eval_test () {
+pub fn eval_sandbox () {
     let mut field = Field::new();
+    /*field.m = [
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_0,
+        0b0_0_0_0_0_0_0_0_0_1,
+        0b0_0_0_1_1_1_1_1_1_1,
+    ];*/
     field.m = [
         0b0_0_0_0_0_0_0_0_0_0,
         0b0_0_0_0_0_0_0_0_0_0,
@@ -181,7 +166,7 @@ pub fn eval_test () {
         0b0_0_0_0_0_0_0_0_0_0,
         0b0_0_0_0_0_0_0_0_0_0,
         0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_1_1_1_1_0,
+        0b0_1_0_0_0_0_0_0_0_1,
     ];
     let mut state = State::new();
     state.field = field;
@@ -192,10 +177,15 @@ pub fn eval_test () {
     state.props.combo = 0;
     //state.props.clear = Clear::Clear4;
 
-    dev_log!(ln, "score: \x1b[46;1m{}\x1b[0m", evaluate(&state));        
+    dev_log!(ln, "score: \x1b[1m{}\x1b[0m", evaluate(&state));        
 }
 
 #[cfg(test)] 
 mod test {
-    use super::*;    
+    use super::*;   
+    
+    #[test]
+    fn eval_test () {
+        eval_sandbox();
+    }
 }

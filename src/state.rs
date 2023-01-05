@@ -46,3 +46,34 @@ impl State {
         }
     }
 }
+
+use std::fmt;
+
+impl fmt::Display for State {
+    fn fmt (&self, f: &mut fmt::Formatter) -> fmt::Result { 
+        for y in 0..20 {
+            for x in 0..10 {
+                let b: bool = (self.field.m[y] & (1 << x)) >> x == 1;
+                if b {
+                    write!(f, "# ")?;
+                } else {
+                    write!(f, ". ")?;
+                }
+            }
+            print!(" ");
+            match y {
+                0 => write!(f, "b2b:   {:>2}", self.props.b2b)?,
+                1 => write!(f, "combo: {:>2}", self.props.combo)?,
+                3 => write!(f, "hold:  {:?}", self.hold)?,
+                4 => write!(f, "queue:")?,
+                5..=9 => if self.pieces.len() > y-5 {
+                    write!(f, "{:?}", self.pieces[y-5])?
+                },
+                _ => ()
+            };
+            write!(f, "\n")?;
+        }
+        write!(f, "\n")?;
+        Ok(())
+    }
+}

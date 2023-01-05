@@ -1,4 +1,6 @@
-use super::{Piece, Move, Props, Clear};
+use super::{Piece, Move, Props};
+use super::mac::*;
+
 use std::fmt;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -34,12 +36,13 @@ impl Field {
         let c_x: i8 = m.x - n/2;
         let c_y: i8 = m.y - n/2;
         let mask = (1 << n) - 1;
-        //println!("move:{:?}", m);
+        
+        //dev_log!("checking conflict for move:{:?}, piece: {:?}", m, p);
         for y in 0..n {
             // The bits representing a single row of the piece map
             let shift: u8 = (n * (n - 1 - y)) as u8;
             let bitseg: u16 = reverse_bin( (( map & (mask << shift) ) >> shift) as u16 , n as u8 );
-            //println!("c_x: {c_x}, map: {:#011b}, bitseg: {:#07b}", PIECE_MAP[*p as usize][m.r as usize], bitseg);
+            //dev_log!("c_x: {c_x}, map: {:#011b}, bitseg: {:#07b}", PIECE_MAP[*p as usize][m.r as usize], bitseg);
 
             // If empty row on piece map
             if bitseg == 0 {
@@ -47,6 +50,7 @@ impl Field {
             }
             // If out of board on upper edge
             if  c_y + y < 0 {
+                //continue;
                 return true;
             }
             // If out of board on bottom edge
@@ -83,12 +87,12 @@ impl Field {
         let c_y: i8 = m.y - n/2;
         let mask = (1 << n) - 1;
         
-        //println!("move:{:?}", m);
+        //dev_log!("applying move:{:?}, piece:{:?}", m, p);
         for y in 0..n {
             // The bits representing a single row of the piece map
             let shift: u8 = (n * (n - 1 - y)) as u8;
             let bitseg: u16 = reverse_bin( (( map & (mask << shift) ) >> shift) as u16 , n as u8 );
-            //println!("c_x: {c_x}, map: {:09b}, bitseg: {:05b}", PIECE_MAP[*p as usize][m.r as usize], bitseg);
+            //dev_log!("c_x: {c_x}, map: {:09b}, bitseg: {:05b}", PIECE_MAP[*p as usize][m.r as usize], bitseg);
 
             // If empty row on piece map
             if bitseg == 0 {
@@ -108,14 +112,14 @@ impl Field {
             }
             // Shift according to c_x
             let bitseg = if c_x > 0 { bitseg << c_x } else { bitseg >> -c_x };
-            //println!("c_x: {}, final bitseg: {:05b}", c_x, bitseg);
+            //dev_log!("c_x: {}, final bitseg: {:05b}", c_x, bitseg);
             // If out of board on right edge
             if bitseg > (1 << 10)-1 {
                 panic!("@ Field.apply_move: out of board on right edge");
             }
             field.m[(c_y + y) as usize] |= bitseg;
         };
-        //println!("{}", field);
+        //dev_log!("{}", field);
         field
     }
     /*
@@ -135,23 +139,30 @@ impl Field {
                 self.m[y] = 0;
             }
         }
+        // Calc attacks 
+        let atk: u8 = match clears {
+            1 => if mov.tspin {2} else {0},
+            2 => if mov.tspin {4} else {1},
+            3 => if mov.tspin {6} else {2},
+            4 => 4,
+            _ => 0,
+        };
+
+        // Cummulative props
+        props.sum_ds += clears as u8;
+        props.sum_atk += atk;
+        props.atk = atk;
+        props.ds = clears as u8;
+
         // Combo
         props.combo = if clears > 0 {props.combo + 1}  else {0};
-
-        // Get clear type
-        props.clear = match clears {
-            1 => if !mov.tspin {Clear::Clear1} else {Clear::Tspin1},
-            2 => if !mov.tspin {Clear::Clear2} else {Clear::Tspin2},
-            3 => if !mov.tspin {Clear::Clear3} else {Clear::Tspin3},
-            4 => Clear::Clear4,
-            _ => Clear::None,
-        }
+        
         // b2b
-
+        props.b2b = if (mov.tspin && clears > 0) || clears == 4 {props.b2b + 1} else {0};
     }
 }
 
-fn reverse_bin (mut x: u16, n: u8) -> u16 {
+pub fn reverse_bin (mut x: u16, n: u8) -> u16 {
     let mut r: u16 = 0;
     for _ in 0..n {
         r <<= 1;
@@ -307,7 +318,7 @@ mod test {
         field = field.apply_move(&m, &Piece::O, &Piece::O);
         field.set_props(&m, &mut props);
 
-        assert_eq!(props.clear, Clear::Clear2);
+        assert_eq!(props.sum_ds, 2);
         assert_eq!(field.m[18], 0);
         assert_eq!(field.m[19], 0);
     }

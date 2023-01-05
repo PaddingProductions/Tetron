@@ -1,4 +1,4 @@
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet, VecDeque};
 use super::{Field, Move, State, Key, Piece};
 
 /* 
@@ -13,44 +13,55 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
     if state.pieces.is_empty() {
         return HashMap::new();
     }
-
-    let mut hash: HashMap<Field, Move> = HashMap::new();
-
     let piece: &Piece = &state.pieces[0];
     let hold: &Piece = if state.hold == Piece::None { &state.pieces[1] } else { &state.hold };
 
-    // Select hold & rotation.
-    for h in [false, true] {
-        for r in 0..3 {
-            let mut m: Move = Move::new();
-            if h { m.apply_key(&Key::Hold, &state.field, piece, hold); }
-            let _ =  match r {
-                1 => m.apply_key(&Key::Cw, &state.field, piece, hold),
-                2 => m.apply_key(&Key::_180, &state.field, piece, hold),
-                3 => m.apply_key(&Key::Ccw, &state.field, piece, hold),
-                _ => true,
-            };
+    let mut field_hash: HashMap<Field, Move> = HashMap::new();
+    let mut move_hash: HashSet<Move> = HashSet::new();
+    let mut q: VecDeque<Move> = VecDeque::new();
+    q.reserve(40);
 
-            // Select direction, move till it no longer changes the placement.
-            for d in [Key::Left, Key::Right] {
-                loop {
-                    if m.apply_key(&d, &state.field, piece, hold) {
-                        // Add to map if generates unique field.
-                        m.apply_key(&Key::HardDrop, &state.field, piece, hold);
-                        let field = state.field.apply_move(&m, piece, hold);
-                        if !hash.contains_key(&field) {
-                            hash.insert(field, m.clone());
-                        }
-                        m.y = 1;
-                    } else {
-                        break;
-                    }
+    // Base cases for BFS
+    let starting_move: Move = Move::new();
+    let mut starting_move_hold = starting_move.clone();
+    starting_move_hold.hold = true;
+
+
+    // Check if field does not allow base moves (game over by top-out)
+    if !state.field.check_conflict(&starting_move, piece) {
+        q.push_back(starting_move);
+    }
+    if !state.field.check_conflict(&starting_move_hold, piece) {
+        q.push_back(starting_move_hold);
+    }
+
+    while !q.is_empty() {
+        let mov: Move = q.pop_front().unwrap();
+
+        for key in [Key::Left, Key::Right, Key::Cw, Key::Ccw, Key::_180, Key::SoftDrop, Key::HardDrop] {
+            let mut m = mov.clone();
+            if !m.apply_key(&key, &state.field, piece, hold) {
+                continue;
+            }
+
+            // Check Move hash
+            if move_hash.get(&m).is_some() {
+                continue;
+            }
+            // If harddropped, check field hash.
+            if m.lock {
+                let field: Field = state.field.apply_move(&m, piece, hold);
+                if !field_hash.contains_key(&field) {
+                    field_hash.insert(field, m);
                 }
+            } else {
+                move_hash.insert(m.clone());
+                q.push_back(m);
             }
         }
     }
-    hash
-}
+    field_hash
+} 
 
 
 #[cfg(test)]
@@ -60,39 +71,38 @@ mod tests {
     #[test]
     fn gen_moves_test () {
         let mut state: State = State::new();
-        state.pieces.push_back(Piece::Z);
+        state.pieces.push_back(Piece::S);
+        state.pieces.push_back(Piece::J);
+        state.pieces.push_back(Piece::S);
+        state.pieces.push_back(Piece::J);
         state.pieces.push_back(Piece::I);
-        state.pieces.push_back(Piece::O);
-        state.pieces.push_back(Piece::L);
-        state.pieces.push_back(Piece::T);
-        state.hold = Piece::None;
-
+        state.hold = Piece::I;
+        
         state.field.m = [   
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_1,
-            0b0_0_0_0_0_0_0_1_1_1,
+            0b0_0_0_0_0_0_1_1_1_0,
+            0b0_0_0_0_0_0_1_1_1_1,
+            0b0_0_0_0_0_0_1_1_1_1,
+            0b0_0_0_0_0_0_1_1_1_1,
+            0b0_0_0_0_0_0_1_1_1_1,
+            0b0_0_0_0_0_0_1_1_1_1,
+            0b0_0_0_0_0_0_1_1_1_1,
+            0b0_0_0_0_0_0_1_1_1_1,
+            0b1_0_1_1_0_0_1_1_1_0,
+            0b1_1_1_1_1_0_1_1_1_1,
+            0b1_1_1_1_1_0_1_1_1_1,
+            0b1_1_1_1_1_0_1_1_1_1,
+            0b1_1_1_1_1_0_1_1_1_1,
+            0b1_1_1_1_1_0_1_1_1_1,
+            0b1_1_1_1_1_0_1_1_1_1,
+            0b1_1_1_1_1_0_1_1_1_1,
         ];
     
         let map = gen_moves(&state);
-        println!("-------");
-        for (field, _) in map.iter() { 
+        for (field, mov) in map {
             println!("{}", field);
         }
     }

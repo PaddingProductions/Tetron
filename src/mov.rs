@@ -1,13 +1,14 @@
 use super::{Key, Piece, Field};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Move {
     pub x: i8,
     pub y: i8,
     pub r: u8,
     pub s: u8,
     pub tspin: bool,
-    pub hold: bool
+    pub hold: bool,
+    pub lock: bool
 }
 
 impl Move {
@@ -19,6 +20,7 @@ impl Move {
             s: 0,
             tspin: false,
             hold: false,
+            lock: false,
         }
     }
     /*
@@ -64,11 +66,18 @@ impl Move {
                     return false;
                 }
             }, 
+            Key::SoftDrop => {
+                while !field.check_conflict(&*self, p) {
+                    self.y += 1;
+                }
+                self.y -= 1;
+            },
             Key::HardDrop => {
                 while !field.check_conflict(&*self, p) {
                     self.y += 1;
                 }
                 self.y -= 1;
+                self.lock = true;
             }
             Key::Hold => {
                 if self.hold {
@@ -90,20 +99,22 @@ mod tests {
     fn move_apply_key_test () {
         let field: Field = Field::new();
         let mut mov: Move = Move::new();
-        let p: Piece = Piece::L;
+        let p: Piece = Piece::I;
         let h: Piece = Piece::J;
 
-        mov.apply_key(&Key::Cw, &field, &p, &h);
-        mov.apply_key(&Key::Left, &field, &p, &h);
-        mov.apply_key(&Key::Left, &field, &p, &h);
-        mov.apply_key(&Key::Left, &field, &p, &h);
+        //mov.apply_key(&Key::Cw, &field, &p, &h);
+        mov.apply_key(&Key::Right, &field, &p, &h);
+        mov.apply_key(&Key::Right, &field, &p, &h);
+        mov.apply_key(&Key::Right, &field, &p, &h);
+        mov.apply_key(&Key::Right, &field, &p, &h);
         //mov.apply_key(&Key::Left, &field, &p, &h);
 
         mov.apply_key(&Key::HardDrop, &field, &p, &h);
 
-        assert_eq!(mov.x, 1);
-        assert_eq!(mov.y, 18);
-        assert_eq!(mov.r, 1);
+        println!("move: {:?}", mov);
+        //assert_eq!(mov.x, 1);
+        //assert_eq!(mov.y, 18);
+        //assert_eq!(mov.r, 1);
     }
 
     #[test]

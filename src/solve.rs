@@ -24,3 +24,48 @@ pub fn solve (state: &State, depth: u8) -> (State, Move, f32) {
     out
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Piece;
+    
+    #[test]
+    fn solve_test () {
+        let mut state: State = State::new();
+        state.pieces.push_back(Piece::J);
+        state.pieces.push_back(Piece::L);
+        state.pieces.push_back(Piece::Z);
+        state.pieces.push_back(Piece::I);
+        state.pieces.push_back(Piece::S);
+        state.hold = Piece::I;
+
+        state.field.m = [   
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_1_1_0_0_0_0_1,
+            0b0_0_1_1_1_1_0_0_1_1,
+            0b0_1_1_1_1_1_0_1_1_1,
+            0b0_1_1_1_1_1_0_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
+            0b1_1_1_1_1_1_0_1_1_1,
+        ];
+    
+        let out: (State, Move, f32) = solve(&state, 1);
+
+        // Log out result
+        println!("result score: \x1b[1m{}\x1b[0m", out.2);
+        println!("{}", &out.0);
+    }
+}

@@ -12,6 +12,40 @@ pub use gen_moves::gen_moves;
 pub use solve::solve;
 pub use evaluator::evaluate;
 
+
+
+pub mod mac {
+    macro_rules! dev_log {
+        ($s:literal) => {
+            if cfg!(test) {
+                print!($s);
+            }
+        };
+        (ln, $s:literal) => {
+            if cfg!(test) {
+                println!($s);
+            }
+        };
+        ($s:literal, $($a: expr),* ) => {
+            if cfg!(test) {
+                print!(
+                    $s,
+                    $($a,)*
+                );
+            }
+        };
+        (ln, $s:literal, $($a: expr),* ) => {
+            if cfg!(test) {
+                println!(
+                    $s,
+                    $($a,)*
+                );
+            }
+        };
+    }
+    pub(crate) use dev_log;
+}
+
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum Piece {
     J = 0,
@@ -22,18 +56,6 @@ pub enum Piece {
     I = 5,
     O = 6,
     None,
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum Clear {
-    None,
-    Clear1,
-    Clear2,
-    Clear3,
-    Clear4,
-    Tspin1,
-    Tspin2,
-    Tspin3,
 }
 
 #[derive(PartialEq)]
@@ -52,9 +74,10 @@ pub enum Key {
 pub struct Props {
     pub sum_atk: u8,
     pub sum_ds: u8,
+    pub atk: u8,
+    pub ds: u8,
     pub b2b: u8,
     pub combo: u8,
-    pub clear: Clear
 }
 impl Props {
     pub fn new () -> Self {
@@ -63,7 +86,8 @@ impl Props {
             combo: 0,
             sum_atk: 0,
             sum_ds: 0,
-            clear: Clear::None
+            atk: 0,
+            ds: 0,
         }
     }
 }

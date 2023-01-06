@@ -13,21 +13,20 @@ pub use solve::solve;
 pub use evaluator::evaluate;
 
 
-
 pub mod mac {
     macro_rules! dev_log {
         ($s:literal) => {
-            if cfg!(test) {
+            if std::env::var("LOG").is_ok() {
                 print!($s);
             }
         };
         (ln, $s:literal) => {
-            if cfg!(test) {
+            if std::env::var("LOG").is_ok() {
                 println!($s);
             }
         };
         ($s:literal, $($a: expr),* ) => {
-            if cfg!(test) {
+            if std::env::var("LOG").is_ok() {
                 print!(
                     $s,
                     $($a,)*
@@ -35,7 +34,7 @@ pub mod mac {
             }
         };
         (ln, $s:literal, $($a: expr),* ) => {
-            if cfg!(test) {
+            if std::env::var("LOG").is_ok() {
                 println!(
                     $s,
                     $($a,)*

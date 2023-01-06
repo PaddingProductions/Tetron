@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use super::{State, Field, Move, gen_moves, evaluate};
 
-pub fn solve (state: &State, depth: u8) -> (State, Move, f32) {
+pub fn solve (state: &State, depth: u8) -> Option<(State, Move, f32)> {
     const CUTOFF_FACTOR: f32 = 0.25;
 
     let moves: HashMap<Field, Move> = gen_moves(state);
@@ -19,7 +19,7 @@ pub fn solve (state: &State, depth: u8) -> (State, Move, f32) {
 
     // If no further expansion
     if depth == 0 {
-        return queue.pop().unwrap()
+        return queue.pop()
     }
 
     // Expand on top margin.
@@ -28,12 +28,13 @@ pub fn solve (state: &State, depth: u8) -> (State, Move, f32) {
     for _ in 0..cutoff {
         let (nstate, mov, score) = queue.pop().unwrap();
 
-        let res = solve(&nstate, depth-1);
+        if let Some(res) = solve(&nstate, depth-1) {
             if out.2.is_nan() || res.2 > out.2 {
                 out = (nstate, mov, res.2);
             }
+        }
     }
-    out
+    Some(out)
 }
 
 #[cfg(test)]
@@ -44,10 +45,10 @@ mod tests {
     #[test]
     fn solve_test () {
         let mut state: State = State::new();
+        state.pieces.push_back(Piece::Z);
+        state.pieces.push_back(Piece::I);
         state.pieces.push_back(Piece::J);
         state.pieces.push_back(Piece::S);
-        state.pieces.push_back(Piece::I);
-        state.pieces.push_back(Piece::Z);
         state.pieces.push_back(Piece::O);
         state.hold = Piece::L;
 
@@ -62,22 +63,24 @@ mod tests {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b1_1_0_0_0_1_0_0_1_1,
-            0b1_1_1_0_1_1_0_0_1_1,
-            0b1_1_1_1_1_1_0_1_1_1,
-            0b1_1_1_1_1_1_0_1_1_1,
+            0b0_0_0_0_0_0_1_1_1_0,
+            0b0_0_0_1_1_1_1_1_1_1,
+            0b0_0_1_1_1_1_1_1_1_1,
+            0b0_0_1_1_1_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
         ];
     
-        let out: (State, Move, f32) = solve(&state, 1);
-
-        // Log out result
-        println!("result score: \x1b[1m{}\x1b[0m", out.2);
-        println!("{}", &out.0);
+        if let Some(out) = solve(&state, 2) {
+            // Log out result
+            println!("result score: \x1b[1m{}\x1b[0m", out.2);
+            println!("{}", &out.0);
+        } else {
+            println!("No results found.");
+        }
     }
 }

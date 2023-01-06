@@ -15,15 +15,15 @@ struct Weights {
 impl Weights {
     pub fn norm () -> Self {
         Self {
-            hole: -100.0,
-            h_local_deviation: -7.0,
-            h_global_deviation: -7.0,
-            average_h :-5.0,
+            hole: -150.0,
+            h_local_deviation: -5.0,
+            h_global_deviation: -5.0,
+            average_h :-3.0,
             sum_attack: 30.0,
-            sum_downstack: 20.0,
+            sum_downstack: 10.0,
             attack: 35.0,
-            downstack: 25.0,
-            no_attack_clear: -50.0,
+            downstack: 10.0,
+            no_attack_clear: -70.0,
         }
     }
 }
@@ -113,10 +113,8 @@ pub fn evaluate (state: &State) -> f32 {
         score += p.sum_ds as f32 * weights.sum_downstack;
         score += p.atk as f32 * weights.attack;
         score += p.ds as f32 * weights.downstack;
-
-        if p.ds > 0 && p.atk == 0 {
-            score += p.ds as f32 * weights.no_attack_clear;
-        }
+        score += p.sum_no_atk as f32 * weights.no_attack_clear;
+        
     }
     dev_log!(ln, "final score: \x1b[1m{}\x1b[0m", score);
     return score;

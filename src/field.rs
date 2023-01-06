@@ -148,9 +148,6 @@ impl Field {
             _ => 0,
         };
 
-        // Cummulative props
-        props.sum_ds += clears as u8;
-        props.sum_atk += atk;
         props.atk = atk;
         props.ds = clears as u8;
 

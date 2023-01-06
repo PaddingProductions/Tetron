@@ -20,8 +20,16 @@ impl State {
         }
     }
 
-    pub fn clone_as_child (self: &Self, mut field: Field, mov: &Move) -> State {
-        let mut props: Props = self.props.clone();
+    pub fn clone_as_child (&self, mut field: Field, mov: &Move) -> State {
+        let mut props: Props = Props { 
+            sum_atk: self.props.sum_atk + self.props.atk,
+            sum_ds: self.props.sum_ds + self.props.ds,
+            sum_no_atk: self.props.sum_no_atk + 
+                if self.props.ds > 0 && self.props.atk == 0 {self.props.ds} else {0},
+            atk: 0,
+            ds: 0,
+            ..self.props
+        };
         
         // process field and edit properties.
         field.set_props(mov, &mut props);

@@ -74,6 +74,7 @@ pub enum Key {
 pub struct Props {
     pub sum_atk: u8,
     pub sum_ds: u8,
+    pub sum_no_atk: u8, // sum of atk-less ds.
     pub atk: u8,
     pub ds: u8,
     pub b2b: u8,
@@ -86,6 +87,7 @@ impl Props {
             combo: 0,
             sum_atk: 0,
             sum_ds: 0,
+            sum_no_atk: 0,
             atk: 0,
             ds: 0,
         }

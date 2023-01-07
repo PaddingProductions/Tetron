@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use super::{State, Field, Move, gen_moves, evaluate};
 
+const INHERITANCE_F: f32 = 0.0;
+
 pub fn solve (state: &State, depth: u8) -> Option<(State, Move, f32)> {
     const CUTOFF_FACTOR: f32 = 0.25;
 
@@ -29,8 +31,9 @@ pub fn solve (state: &State, depth: u8) -> Option<(State, Move, f32)> {
         let (nstate, mov, score) = queue.pop().unwrap();
 
         if let Some(res) = solve(&nstate, depth-1) {
-            if out.2.is_nan() || res.2 > out.2 {
-                out = (nstate, mov, res.2);
+            let nscore = score * INHERITANCE_F + res.2 * (1.0 - INHERITANCE_F);
+            if out.2.is_nan() || nscore > out.2 {
+                out = (nstate, mov, nscore);
             }
         }
     }
@@ -45,12 +48,12 @@ mod tests {
     #[test]
     fn solve_test () {
         let mut state: State = State::new();
-        state.pieces.push_back(Piece::Z);
-        state.pieces.push_back(Piece::I);
+        state.pieces.push_back(Piece::L);
         state.pieces.push_back(Piece::J);
+        state.pieces.push_back(Piece::I);
         state.pieces.push_back(Piece::S);
-        state.pieces.push_back(Piece::O);
-        state.hold = Piece::L;
+        state.pieces.push_back(Piece::Z);
+        state.hold = Piece::I;
 
         state.field.m = [   
             0b0_0_0_0_0_0_0_0_0_0,
@@ -63,16 +66,16 @@ mod tests {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_1_1_1_0,
-            0b0_0_0_1_1_1_1_1_1_1,
-            0b0_0_1_1_1_1_1_1_1_1,
-            0b0_0_1_1_1_1_1_1_1_1,
-            0b0_1_1_1_1_1_1_1_1_1,
-            0b0_1_1_1_1_1_1_1_1_1,
-            0b0_1_1_1_1_1_1_1_1_1,
-            0b0_1_1_1_1_1_1_1_1_1,
-            0b0_1_1_1_1_1_1_1_1_1,
-            0b0_1_1_1_1_1_1_1_1_1,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_1_1,
+            0b1_1_1_1_1_1_1_0_1_1,
+            0b1_0_1_1_1_1_1_0_1_1,
         ];
     
         if let Some(out) = solve(&state, 2) {

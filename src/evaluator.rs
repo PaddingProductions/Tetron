@@ -6,7 +6,7 @@ struct Consts {
     ds_mode_penalty: f32,
 }
 impl Consts {
-    pub fn new () -> Self {
+    pub const fn new () -> Self {
         Self {
             ds_height_threshold: 14.0,
             ds_mode_penalty: -2000.0,
@@ -19,13 +19,13 @@ struct Factors {
     well_threshold: f32,
 }
 impl Factors {
-    pub fn norm () -> Self {
+    pub const fn norm () -> Self {
         Self {
             ideal_h: 5.0,
             well_threshold: 4.0,
         }
     }
-    pub fn ds () -> Self {
+    pub const fn ds () -> Self {
         Self {
             ideal_h: 0.0,
             well_threshold: 20.0,
@@ -45,21 +45,21 @@ struct Weights {
     eff: f32,
 }
 impl Weights {
-    pub fn norm () -> Self {
+    pub const fn norm () -> Self {
         Self {
-            hole: -150.0,
+            hole: -100.0,
             hole_depth: -10.0,
             h_local_deviation: -5.0,
             h_global_deviation: -1.0,
             average_h :-10.0,
-            sum_attack: 35.0,
+            sum_attack: 40.0,
             sum_downstack: 15.0,
-            attack: 30.0,
+            attack: 35.0,
             downstack: 10.0,
             eff: 50.0,
         }
     }
-    pub fn ds () -> Self {
+    pub const fn ds () -> Self {
         Self {
             hole: -150.0,
             hole_depth: -15.0,
@@ -74,8 +74,14 @@ impl Weights {
         }
     }
 }
+
+const WEIGHTS_NORM: Weights = Weights::norm();
+const WEIGHTS_DS: Weights = Weights::ds();
+const FACTORS_NORM: Factors = Factors::norm();
+const FACTORS_DS: Factors = Factors::ds();
+const CONSTS: Consts = Consts::new();
+
 pub fn evaluate (state: &State) -> f32 {
-    let CONSTS: Consts = Consts::new();
     let f: &Field = &state.field;
     let p: &Props = &state.props;
     let mut score: f32 = 0.0;
@@ -132,9 +138,9 @@ pub fn evaluate (state: &State) -> f32 {
         if  f_h as f32 - avg > CONSTS.ds_height_threshold || holes > 0.0 {
             dev_log!(ln, "DS penalty: {}", CONSTS.ds_mode_penalty);
             score += CONSTS.ds_mode_penalty;
-            (Weights::ds(), Factors::ds())
+            (WEIGHTS_DS, FACTORS_DS)
         } else {
-            (Weights::norm(), Factors::norm())
+            (WEIGHTS_NORM, FACTORS_NORM)
         };
 
     // Score by holes & depth (split from calculation because weight selection requires hole info)
@@ -248,7 +254,6 @@ pub fn eval_sandbox () {
         0b0_0_0_0_0_0_0_0_0_0,
         0b0_0_0_0_0_0_0_0_0_1,
         0b0_1_0_1_1_0_0_0_0_1,
-        //0b1_1_1_1_1_1_0_0_0_1,
         0b1_1_1_1_1_1_1_1_0_1,
         0b1_1_1_1_1_1_0_1_1_1,
     ];

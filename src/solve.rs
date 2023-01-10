@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use super::{State, Field, Move, gen_moves, evaluate};
 
 const INHERITANCE_F: f32 = 0.0;
+const SCORE_CUTOFF_FACTOR: f32 = 0.3;
+const STRICT_CUTOFF: usize = 8;
 
 pub fn solve (state: &State, depth: u8) -> Option<(State, Move, f32)> {
-    const CUTOFF_FACTOR: f32 = 0.25;
-
     let moves: HashMap<Field, Move> = gen_moves(state);
     let mut queue: Vec<(State, Move, f32)> = vec![];
     queue.reserve(moves.len());
@@ -26,9 +26,17 @@ pub fn solve (state: &State, depth: u8) -> Option<(State, Move, f32)> {
 
     // Expand on top margin.
     let mut out: (State, Move, f32) = (State::new(), Move::new(), f32::NAN);
-    let cutoff: usize = (CUTOFF_FACTOR * queue.len() as f32).floor() as usize;
-    for _ in 0..cutoff {
-        let (nstate, mov, score) = queue.pop().unwrap();
+    let score_variation = queue[queue.len()-1].2 - queue[0].2;
+    let cutoff_score: f32 = queue[queue.len()-1].2 - (score_variation * SCORE_CUTOFF_FACTOR);
+    let mut cnt = 0;
+     
+    while let Some((nstate, mov, score)) = queue.pop() {
+        if cnt >= STRICT_CUTOFF {
+            break;
+        }
+        if score < cutoff_score {
+            break;
+        }
 
         if let Some(res) = solve(&nstate, depth-1) {
             let nscore = score * INHERITANCE_F + res.2 * (1.0 - INHERITANCE_F);
@@ -36,7 +44,9 @@ pub fn solve (state: &State, depth: u8) -> Option<(State, Move, f32)> {
                 out = (nstate, mov, nscore);
             }
         }
+        cnt += 1;
     }
+    println!("solve expands @depth_{}: {}", depth, cnt);
     Some(out)
 }
 
@@ -48,12 +58,12 @@ mod tests {
     #[test]
     fn solve_test () {
         let mut state: State = State::new();
-        state.pieces.push_back(Piece::L);
+        state.pieces.push_back(Piece::T);
         state.pieces.push_back(Piece::J);
         state.pieces.push_back(Piece::I);
         state.pieces.push_back(Piece::S);
         state.pieces.push_back(Piece::Z);
-        state.hold = Piece::I;
+        state.hold = Piece::T;
 
         state.field.m = [   
             0b0_0_0_0_0_0_0_0_0_0,
@@ -74,14 +84,16 @@ mod tests {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_1_1,
+            0b1_1_1_1_1_1_0_0_0_1,
             0b1_1_1_1_1_1_1_0_1_1,
-            0b1_0_1_1_1_1_1_0_1_1,
         ];
     
         if let Some(out) = solve(&state, 2) {
             // Log out result
             println!("result score: \x1b[1m{}\x1b[0m", out.2);
             println!("{}", &out.0);
+            println!("move: {:?}", &out.1);
+            println!("prop: {:?}", &out.0.props);
         } else {
             println!("No results found.");
         }

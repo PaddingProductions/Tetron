@@ -34,12 +34,42 @@ impl Move {
         Returns if spin passed
      */
     fn apply_spin (self: &mut Self, field: &Field, p: &Piece, d: &i8) -> bool {
-        self.set_spin(d);
-        if field.check_conflict(&*self, p) {
-            self.set_spin(&-d);
-            return false
+        let r = self.r as usize;
+        let nr = (self.r as i8 + d).rem_euclid(4) as usize;
+        let table_ref: &[[(i8, i8); 5]; 4] = match *p {
+            Piece::I => &KICK_TABLE_I,
+            _ => &KICK_TABLE
+        };
+
+        let kicks: Vec<(i8, i8)> = (0..5).map(
+            |i| (
+                table_ref[r][i].0 - table_ref[nr][i].0,
+                table_ref[r][i].1 - table_ref[nr][i].1
+            )).collect();
+        
+        self.r = nr as u8;
+        for i in 0..5 {
+            self.x += kicks[i].0;
+            self.y -= kicks[i].1;
+            if !field.check_conflict(&*self, p) {
+                // Check t-spin
+                if *p == Piece::T {
+                    // Three-corner rule
+                    // TODO: differentiate mini-tspins and tspins :p
+                    let cnt: u8 = 
+                        [(self.x-1, self.y-1), (self.x-1, self.y+1), (self.x+1, self.y-1), (self.x+1 , self.y+1)]
+                        .map(|(x, y)| 
+                            if x < 0 || y < 0 || x >= 10 || y >= 20 || field.m[y as usize] & (1 << x) > 0 {1 as u8} else {0 as u8}
+                        ).iter().sum::<u8>();
+                    self.tspin = cnt >= 3;
+                }
+                return true
+            }
+            self.x -= kicks[i].0;
+            self.y += kicks[i].1;
         }
-        true
+        self.r = r as u8;
+        false
     }
     /*
         Changes attributes in self based on given Key
@@ -90,6 +120,20 @@ impl Move {
         true
     }
 }
+
+const KICK_TABLE: [[(i8, i8); 5]; 4] = [
+    [( 0, 0), ( 0, 0), ( 0, 0), ( 0, 0), ( 0, 0)],
+    [( 0, 0), ( 1, 0), ( 1,-1), ( 0, 2), ( 1, 2)],
+    [( 0, 0), ( 0, 0), ( 0, 0), ( 0, 0), ( 0, 0)],
+    [( 0, 0), (-1, 0), (-1,-1), ( 0, 2), (-1, 2)],
+];
+
+const KICK_TABLE_I: [[(i8, i8); 5]; 4] = [
+    [( 0, 0), (-1, 0), ( 2, 0), (-1, 0), ( 2, 0)],
+    [(-1, 0), ( 0, 0), ( 0, 0), ( 0, 1), ( 0,-2)],
+    [(-1, 1), ( 1, 1), (-2, 1), ( 1, 0), (-2, 0)],
+    [( 0, 1), ( 0, 1), ( 0, 1), ( 0,-1), ( 0, 2)],
+];
 
 #[cfg(test)]
 mod tests {

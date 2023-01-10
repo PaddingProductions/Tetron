@@ -58,7 +58,7 @@ impl Field {
                 return true
             }
             // If out of board on left edge
-            if c_x < 0 && bitseg & (1 << (-c_x) - 1) > 0  {
+            if c_x < 0 && bitseg & ((1 << (-c_x)) - 1) > 0  {
                 return true
             }
             // Shift according to c_x
@@ -107,7 +107,7 @@ impl Field {
                 panic!("@ Field.apply_move: out of board on bottom edge");
             }
             // If out of board on left edge
-            if c_x < 0 && bitseg & (1 << (-c_x) - 1) > 0  {
+            if c_x < 0 && bitseg & ((1 << (-c_x)) - 1) > 0  {
                 panic!("@ Field.apply_move: out of board on left edge");
             }
             // Shift according to c_x
@@ -148,8 +148,14 @@ impl Field {
             _ => 0,
         };
 
+        // Setting attacks & ds (clears)
         props.atk = atk;
         props.ds = clears as u8;
+
+        // If perfect clear
+        if clears > 0 && self.m.iter().sum::<u16>() == 0 {
+            props.atk += 10;
+        }
 
         // Combo
         props.combo = if clears > 0 {props.combo + 1}  else {0};

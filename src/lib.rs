@@ -69,7 +69,7 @@ pub enum Key {
     Hold,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Props {
     pub sum_atk: u8,
     pub sum_ds: u8,
@@ -91,10 +91,4 @@ impl Props {
             ds: 0,
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
 }

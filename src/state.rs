@@ -28,6 +28,7 @@ impl State {
                 if self.props.ds > 0 && self.props.atk == 0 {self.props.ds} else {0},
             atk: 0,
             ds: 0,
+            clears: 0,
             ..self.props
         };
         

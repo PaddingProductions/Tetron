@@ -23,12 +23,6 @@ impl Move {
             lock: false,
         }
     }
-    /*
-        Handles the modular arithmetic involved with spining.
-     */
-    fn set_spin (self: &mut Self, d: &i8) {
-        self.r = (self.r as i8 + d).rem_euclid(4) as u8;
-    }
     /* 
         Handles kicks
         Returns if spin passed

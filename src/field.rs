@@ -133,6 +133,7 @@ impl Field {
                 self.m[y+clears] = self.m[y];
             }
             if self.m[y] == (1 << 10) - 1 {
+                props.clears += 1 << y;
                 clears += 1;
             }
             if clears > 0 {

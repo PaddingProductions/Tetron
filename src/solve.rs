@@ -1,11 +1,12 @@
 use std::collections::HashMap;
-use super::{State, Field, Move, gen_moves, evaluate};
+use super::{State, Field, Move, gen_moves, evaluate, EvaluatorMode};
 
 const INHERITANCE_F: f32 = 0.0;
 const SCORE_CUTOFF_FACTOR: f32 = 0.3;
 const STRICT_CUTOFF: usize = 8;
 
-pub fn solve (state: &State, depth: u8) -> Option<(State, Move, f32)> {
+pub fn solve (state: &State, depth: u8, mode: Option<EvaluatorMode>) -> Option<(State, Move, f32)> {
+    let mode = mode.unwrap_or_else(|| EvaluatorMode::Norm);
     let moves: HashMap<Field, Move> = gen_moves(state);
     let mut queue: Vec<(State, Move, f32)> = vec![];
     queue.reserve(moves.len());
@@ -13,11 +14,16 @@ pub fn solve (state: &State, depth: u8) -> Option<(State, Move, f32)> {
     // Evaluate all children
     for (field, mov) in moves.iter() {
         let nstate: State = state.clone_as_child(field.clone(), mov);
-        let score = evaluate(&nstate);
+        let score = evaluate(&nstate, mode);
         queue.push((nstate, mov.clone(), score));
     }
     // Sort reverse
     queue.sort_by(|a, b| a.2.total_cmp(&b.2));
+
+    // If empty (game over)
+    if queue.is_empty() {
+        return None;
+    }
 
     // If no further expansion
     if depth == 0 {
@@ -38,7 +44,7 @@ pub fn solve (state: &State, depth: u8) -> Option<(State, Move, f32)> {
             break;
         }
 
-        if let Some(res) = solve(&nstate, depth-1) {
+        if let Some(res) = solve(&nstate, depth-1, Some(mode)) {
             let nscore = score * INHERITANCE_F + res.2 * (1.0 - INHERITANCE_F);
             if out.2.is_nan() || nscore > out.2 {
                 out = (nstate, mov, nscore);
@@ -46,7 +52,7 @@ pub fn solve (state: &State, depth: u8) -> Option<(State, Move, f32)> {
         }
         cnt += 1;
     }
-    println!("solve expands @depth_{}: {}", depth, cnt);
+    //println!("solve expands @depth_{}: {}", depth, cnt);
     Some(out)
 }
 
@@ -88,7 +94,7 @@ mod tests {
             0b1_1_1_1_1_1_1_0_1_1,
         ];
     
-        if let Some(out) = solve(&state, 2) {
+        if let Some(out) = solve(&state, 2, None) {
             // Log out result
             println!("result score: \x1b[1m{}\x1b[0m", out.2);
             println!("{}", &out.0);

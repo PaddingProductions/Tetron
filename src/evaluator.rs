@@ -1,36 +1,19 @@
 use super::{State, Field, Props};
 use super::mac::*;
 
+#[derive(Copy, Clone)]
+pub enum EvaluatorMode {
+    Norm,
+    Attack,
+    DS,
+}
 struct Consts {
     ds_height_threshold: f32,
     ds_mode_penalty: f32,
 }
-impl Consts {
-    pub const fn new () -> Self {
-        Self {
-            ds_height_threshold: 14.0,
-            ds_mode_penalty: -2000.0,
-        }
-    }
-}
-
 struct Factors {
     ideal_h: f32,
     well_threshold: f32,
-}
-impl Factors {
-    pub const fn norm () -> Self {
-        Self {
-            ideal_h: 5.0,
-            well_threshold: 4.0,
-        }
-    }
-    pub const fn ds () -> Self {
-        Self {
-            ideal_h: 0.0,
-            well_threshold: 20.0,
-        }
-    }
 }
 struct Weights {
     hole: f32,
@@ -44,44 +27,45 @@ struct Weights {
     downstack: f32,
     eff: f32,
 }
-impl Weights {
-    pub const fn norm () -> Self {
-        Self {
-            hole: -100.0,
-            hole_depth: -10.0,
-            h_local_deviation: -5.0,
-            h_global_deviation: -1.0,
-            average_h :-10.0,
-            sum_attack: 40.0,
-            sum_downstack: 15.0,
-            attack: 35.0,
-            downstack: 10.0,
-            eff: 50.0,
-        }
-    }
-    pub const fn ds () -> Self {
-        Self {
-            hole: -150.0,
-            hole_depth: -15.0,
-            h_local_deviation: -10.0,
-            h_global_deviation: -1.0,
-            average_h : -20.0,
-            sum_attack: 0.0,
-            sum_downstack: 350.0,
-            attack: 0.0,
-            downstack: 30.0,
-            eff: 50.0,
-        }
-    }
-}
+const WEIGHTS_ATK: Weights = Weights {
+    hole: -100.0,
+    hole_depth: -10.0,
+    h_local_deviation: -5.0,
+    h_global_deviation: -4.0,
+    average_h :-10.0,
+    sum_attack: 40.0,
+    sum_downstack: 15.0,
+    attack: 35.0,
+    downstack: 10.0,
+    eff: 50.0,
+};
 
-const WEIGHTS_NORM: Weights = Weights::norm();
-const WEIGHTS_DS: Weights = Weights::ds();
-const FACTORS_NORM: Factors = Factors::norm();
-const FACTORS_DS: Factors = Factors::ds();
-const CONSTS: Consts = Consts::new();
+const WEIGHTS_DS: Weights = Weights {
+    hole: -150.0,
+    hole_depth: -20.0,
+    h_local_deviation: -10.0,
+    h_global_deviation: -8.0,
+    average_h : -20.0,
+    sum_attack: 0.0,
+    sum_downstack: 35.0,
+    attack: 0.0,
+    downstack: 30.0,
+    eff: 0.0,
+};
+const FACTORS_ATK: Factors = Factors {
+    ideal_h: 5.0,
+    well_threshold: 4.0,
+};
+const FACTORS_DS: Factors = Factors {
+    ideal_h: 0.0,
+    well_threshold: 20.0,
+};
+const CONSTS: Consts = Consts {
+    ds_height_threshold: 14.0,
+    ds_mode_penalty: -2000.0,
+};
 
-pub fn evaluate (state: &State) -> f32 {
+pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     let f: &Field = &state.field;
     let p: &Props = &state.props;
     let mut score: f32 = 0.0;
@@ -90,7 +74,6 @@ pub fn evaluate (state: &State) -> f32 {
     let mut h: [u8; f_w] = [0; f_w];
     let mut well: Option<u8> = None;
 
-    dev_log!("{}", state);
 
 
     // get all column heights
@@ -122,7 +105,7 @@ pub fn evaluate (state: &State) -> f32 {
             for y in (h[x] as usize + 1)..f_h {
                 if ( f.m[y] & ( 1 << x ) ) == 0 {
                     holes += 1.0;
-                    let d: f32 = (y - h[x] as usize) as f32;
+                    let d: f32 = ((y - h[x] as usize) as f32).abs().min(3.0);
                     depth_sum_sq += d * d;
                 }
             }
@@ -134,14 +117,20 @@ pub fn evaluate (state: &State) -> f32 {
     // CURRENT SETTING: (for ds)
     // -> if holes
     // -> if average height past threshold
-    let (weights, factors) = 
-        if  f_h as f32 - avg > CONSTS.ds_height_threshold || holes > 0.0 {
-            dev_log!(ln, "DS penalty: {}", CONSTS.ds_mode_penalty);
-            score += CONSTS.ds_mode_penalty;
-            (WEIGHTS_DS, FACTORS_DS)
-        } else {
-            (WEIGHTS_NORM, FACTORS_NORM)
-        };
+    let (weights, factors) = {
+        match mode {
+            EvaluatorMode::Norm => 
+                if  f_h as f32 - avg > CONSTS.ds_height_threshold || holes > 0.0 {
+                    dev_log!(ln, "DS penalty: {}", CONSTS.ds_mode_penalty);
+                    score += CONSTS.ds_mode_penalty;
+                    (WEIGHTS_DS, FACTORS_DS)
+                } else {
+                    (WEIGHTS_ATK, FACTORS_ATK)
+                },
+            EvaluatorMode::DS => (WEIGHTS_DS, FACTORS_DS),
+            EvaluatorMode::Attack => (WEIGHTS_ATK, FACTORS_ATK),
+        }
+    };
 
     // Score by holes & depth (split from calculation because weight selection requires hole info)
     {
@@ -230,6 +219,7 @@ pub fn evaluate (state: &State) -> f32 {
     }
 
     dev_log!(ln, "final score: \x1b[1m{}\x1b[0m", score);
+    dev_log!("{}", state);
     return score;
 }
 
@@ -269,7 +259,7 @@ pub fn eval_sandbox () {
     state.props.combo = 0;
     //state.props.clear = Clear::Clear4;
 
-    dev_log!(ln, "score: \x1b[1m{}\x1b[0m", evaluate(&state));        
+    dev_log!(ln, "score: \x1b[1m{}\x1b[0m", evaluate(&state, EvaluatorMode::Norm));        
 }
 
 #[cfg(test)] 

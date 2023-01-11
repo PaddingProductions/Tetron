@@ -10,7 +10,7 @@ pub use state::State;
 pub use mov::Move;
 pub use gen_moves::gen_moves;
 pub use solve::solve;
-pub use evaluator::evaluate;
+pub use evaluator::{evaluate, EvaluatorMode};
 
 
 pub mod mac {
@@ -78,6 +78,7 @@ pub struct Props {
     pub ds: u8,
     pub b2b: u8,
     pub combo: u8,
+    pub clears: u32,
 }
 impl Props {
     pub fn new () -> Self {
@@ -89,6 +90,7 @@ impl Props {
             sum_no_atk: 0,
             atk: 0,
             ds: 0,
+            clears: 0,
         }
     }
 }

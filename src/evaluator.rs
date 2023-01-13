@@ -79,20 +79,20 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     let f: &Field = &state.field;
     let p: &Props = &state.props;
     let mut score: f32 = 0.0;
-    const f_w: usize = 10;
-    const f_h: usize = 20;
-    let mut h: [u8; f_w] = [0; f_w];
+    const FW: usize = 10;
+    const FH: usize = 20;
+    let mut h: [u8; FW] = [0; FW];
     let mut well: Option<u8> = None;
 
     // get all column heights
     {
         let mut cache_y: usize = 0;
-        while cache_y < f_h && f.m[cache_y] == 0 {
+        while cache_y < FH && f.m[cache_y] == 0 {
             cache_y += 1;
         }
-        for x in 0..f_w {
-            for y in cache_y..=f_h {
-                if y == f_h {
+        for x in 0..FW {
+            for y in cache_y..=FH {
+                if y == FH {
                     h[x] = 20;
                 } else if f.m[y] & ( 1 << x ) > 0 {
                     h[x] = y as u8;
@@ -103,14 +103,14 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
         dev_log!(ln, "h: {:?}", h);
     }
     // Get raw avg height 
-    let mut avg: f32 = h.iter().sum::<u8>() as f32 / f_w as f32;
+    let mut avg: f32 = h.iter().sum::<u8>() as f32 / FW as f32;
 
     // find holes
     let (holes, hole_depth_sum_sq) = {
         let mut holes: f32 = 0.0;
         let mut depth_sum_sq: f32 = 0.0;
-        for x in 0..f_w {
-            for y in (h[x] as usize + 1)..f_h {
+        for x in 0..FW {
+            for y in (h[x] as usize + 1)..FH {
                 if ( f.m[y] & ( 1 << x ) ) == 0 {
                     holes += 1.0;
                     let d: f32 = ((y - h[x] as usize) as f32).abs().min(3.0);
@@ -128,7 +128,7 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     let (weights, factors) = {
         match mode {
             EvaluatorMode::Norm => 
-                if  f_h as f32 - avg > CONSTS.ds_height_threshold || holes > 0.0 {
+                if  FH as f32 - avg > CONSTS.ds_height_threshold || holes > 0.0 {
                     dev_log!(ln, "DS penalty: {}", CONSTS.ds_mode_penalty);
                     score += CONSTS.ds_mode_penalty;
                     (WEIGHTS_DS, FACTORS_DS)
@@ -162,7 +162,7 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
             }
         }
         if let Some(well) = well {
-            avg = (avg * f_w as f32 - h[well as usize] as f32) / (f_w - 1) as f32;
+            avg = (avg * FW as f32 - h[well as usize] as f32) / (FW - 1) as f32;
         } 
         if let Some(x) = well {
             dev_log!(ln, "identified well: \x1b[1m{}\x1b[0m", x);
@@ -171,7 +171,7 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
 
     // Score by avg height
     { 
-        let h: f32 = f_h as f32 - avg;
+        let h: f32 = FH as f32 - avg;
         let d: f32 = (h - factors.ideal_h).abs();
         score += weights.average_h * d * d;
         dev_log!(ln, "global h: {}, ideal: {}, penalty: {}", h, factors.ideal_h, d * d * weights.average_h); 
@@ -181,7 +181,7 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     {
         dev_log!("global h-deviations: ");
         let mut sum_sq: f32 = 0.0;
-        for x in 0..f_w {
+        for x in 0..FW {
             if let Some(w) = well { // Ignore if well
                 if w == x as u8 {
                     continue
@@ -200,16 +200,20 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     {
         dev_log!("local h-deviation: ");
         let mut sum_sq: f32 = 0.0;
-        for x in 1..f_w {
+        let mut prev: Option<u8> = None;
+        for x in 0..FW {
             if let Some(w) = well { // Ignore if well
-                if w == x as u8 || w+1 == x as u8 {
+                if w == x as u8 {
                     continue
                 }
             }
-            
-            let d: f32 = h[x].abs_diff(h[x-1]) as f32;
-            sum_sq += d * d;
-            dev_log!("{} ", d);
+            if let Some(prev) = prev { 
+                let d: f32 = h[x].abs_diff(prev) as f32;
+                sum_sq += d * d;
+                dev_log!("{} ", d);
+            } else {dev_log!("- ");}
+
+            prev = Some(h[x]);
         }
         score += sum_sq * weights.h_local_deviation;
         dev_log!(ln, ", sum: {}, penalty: {}", sum_sq, sum_sq * weights.h_local_deviation);

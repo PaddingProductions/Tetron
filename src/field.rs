@@ -1,5 +1,4 @@
 use super::{Piece, Move, Props};
-use super::mac::*;
 
 use std::fmt;
 

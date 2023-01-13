@@ -113,7 +113,7 @@ mod tests {
         ];
     
         let map = gen_moves(&state);
-        for (field, mov) in map {
+        for (field, _) in map {
             println!("{}", field);
         }
     }

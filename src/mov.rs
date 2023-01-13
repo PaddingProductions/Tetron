@@ -118,7 +118,6 @@ impl Move {
                 }
                 self.hold = true
             }
-            _ => return false,
         }; 
         true
     }

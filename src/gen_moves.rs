@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use super::{Field, Move, State, Key, Piece};
+use std::time::Instant;
 
+use super::{Field, Move, State, Key, Piece};
+use crate::bench_data;
 /* 
     Generates all valid Moves that can be applied to a given state. 
     Implemented via BFS for finesse. 
@@ -9,6 +11,15 @@ use super::{Field, Move, State, Key, Piece};
     Uniqueness of Field is guarenteed via a Hashset<T>. This, in turn, guarentees uniqueness in Moves.
  */
 pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
+    // Benching
+    let start = Instant::now();
+    defer!(unsafe { 
+        bench_data.gen_moves.1 += 1;
+        let dt = start.elapsed().as_micros();
+        bench_data.gen_moves.0 = if bench_data.gen_moves.0 == 0 {dt} else {(bench_data.gen_moves.0 + dt) / 2};
+    });
+
+
     // Check if there is even a piece to expand on.
     if state.pieces.is_empty() {
         return HashMap::new();

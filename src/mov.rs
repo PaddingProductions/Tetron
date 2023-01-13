@@ -1,3 +1,6 @@
+use std::time::Instant;
+
+use crate::bench_data;
 use super::{Key, Piece, Field};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -70,7 +73,13 @@ impl Move {
         Returns whether the key affects the attributes 
      */
     pub fn apply_key(self: &mut Self, key: &Key, field: &Field, piece: &Piece, hold: &Piece) -> bool {
-        
+        let start = Instant::now();
+        defer!(unsafe {
+            bench_data.apply_key.1 += 1;
+            let dt = start.elapsed().as_micros();
+            bench_data.apply_key.0 = if bench_data.apply_key.0 == 0 {dt} else {(bench_data.apply_key.0 + dt) / 2};
+        });
+
         let p: &Piece = if self.hold {hold} else {piece};
 
         match key {

@@ -1,3 +1,6 @@
+use crate::bench_data;
+use std::time::Instant;
+
 use super::{State, Field, Props};
 use super::mac::*;
 
@@ -66,6 +69,13 @@ const CONSTS: Consts = Consts {
 };
 
 pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
+    let start = Instant::now();
+    defer!(unsafe {
+        bench_data.evaluator.1 += 1;
+        let dt = start.elapsed().as_micros();
+        bench_data.evaluator.0 = if bench_data.evaluator.0 == 0 {dt} else {(bench_data.evaluator.0 + dt) / 2};
+    });
+
     let f: &Field = &state.field;
     let p: &Props = &state.props;
     let mut score: f32 = 0.0;
@@ -73,8 +83,6 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     const f_h: usize = 20;
     let mut h: [u8; f_w] = [0; f_w];
     let mut well: Option<u8> = None;
-
-
 
     // get all column heights
     {
@@ -220,47 +228,10 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
 
     dev_log!(ln, "final score: \x1b[1m{}\x1b[0m", score);
     dev_log!("{}", state);
+
     return score;
 }
 
-pub fn eval_sandbox () {
-    let mut field = Field::new();
-    field.m = [   
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_0,
-        0b0_0_0_0_0_0_0_0_0_1,
-        0b0_1_0_1_1_0_0_0_0_1,
-        0b1_1_1_1_1_1_1_1_0_1,
-        0b1_1_1_1_1_1_0_1_1_1,
-    ];
-    let mut state = State::new();
-    
-    state.field = field;
-    state.props = Props::new();
-    state.props.sum_atk = 0;
-    state.props.sum_ds = 0;
-    state.props.atk = 1;
-    state.props.ds = 2;
-    state.props.b2b = 0;
-    state.props.combo = 0;
-    //state.props.clear = Clear::Clear4;
-
-    dev_log!(ln, "score: \x1b[1m{}\x1b[0m", evaluate(&state, EvaluatorMode::Norm));        
-}
 
 #[cfg(test)] 
 mod test {
@@ -268,6 +239,40 @@ mod test {
     
     #[test]
     fn eval_test () {
-        eval_sandbox();
+        let mut field = Field::new();
+        field.m = [   
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_1,
+            0b0_1_0_1_1_0_0_0_0_1,
+            0b1_1_1_1_1_1_1_1_0_1,
+            0b1_1_1_1_1_1_0_1_1_1,
+        ];
+        let mut state = State::new();
+        
+        state.field = field;
+        state.props = Props::new();
+        state.props.sum_atk = 0;
+        state.props.sum_ds = 0;
+        state.props.atk = 1;
+        state.props.ds = 2;
+        state.props.b2b = 0;
+        state.props.combo = 0;
+    
+        dev_log!(ln, "score: \x1b[1m{}\x1b[0m", evaluate(&state, EvaluatorMode::Norm));  
     }
 }

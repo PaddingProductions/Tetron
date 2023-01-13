@@ -1,4 +1,7 @@
 use std::collections::HashMap;
+use std::time::Instant;
+
+use crate::bench_data;
 use super::{State, Field, Move, gen_moves, evaluate, EvaluatorMode};
 
 const INHERITANCE_F: f32 = 0.0;
@@ -6,6 +9,14 @@ const SCORE_CUTOFF_FACTOR: f32 = 0.3;
 const STRICT_CUTOFF: usize = 8;
 
 pub fn solve (state: &State, depth: u8, mode: Option<EvaluatorMode>) -> Option<(State, Move, f32)> {
+    // Benching
+    let start = Instant::now();
+    defer!(unsafe { if depth == 0 {
+        bench_data.solve_d0.1 += 1;
+        let dt = start.elapsed().as_micros();
+        bench_data.solve_d0.0 = if bench_data.solve_d0.0 == 0 {dt} else {(bench_data.solve_d0.0 + dt) / 2};
+    }});
+
     let mode = mode.unwrap_or_else(|| EvaluatorMode::Norm);
     let moves: HashMap<Field, Move> = gen_moves(state);
     let mut queue: Vec<(State, Move, f32)> = vec![];
@@ -63,6 +74,8 @@ mod tests {
     
     #[test]
     fn solve_test () {
+        crate::bench_reset();
+
         let mut state: State = State::new();
         state.pieces.push_back(Piece::T);
         state.pieces.push_back(Piece::J);
@@ -93,15 +106,20 @@ mod tests {
             0b1_1_1_1_1_1_0_0_0_1,
             0b1_1_1_1_1_1_1_0_1_1,
         ];
-    
+        let start = Instant::now();
         if let Some(out) = solve(&state, 2, None) {
+            let dt = start.elapsed().as_millis();
+            
             // Log out result
             println!("result score: \x1b[1m{}\x1b[0m", out.2);
             println!("{}", &out.0);
             println!("move: {:?}", &out.1);
             println!("prop: {:?}", &out.0.props);
+            println!("dt: \x1b[1m{}\x1b[0mms", dt);
         } else {
             println!("No results found.");
         }
+
+        crate::print_bench_result();
     }
 }

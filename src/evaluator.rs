@@ -4,7 +4,7 @@ use std::time::Instant;
 use super::{State, Field, Props};
 use super::mac::*;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum EvaluatorMode {
     Norm,
     Attack,
@@ -13,6 +13,7 @@ pub enum EvaluatorMode {
 struct Consts {
     ds_height_threshold: f32,
     ds_mode_penalty: f32,
+    well_placement: [f32; 10],
 }
 struct Factors {
     ideal_h: f32,
@@ -23,6 +24,7 @@ struct Weights {
     hole_depth: f32,
     h_local_deviation: f32,
     h_global_deviation: f32,
+    well_f: f32,
     average_h: f32,
     sum_attack: f32, 
     sum_downstack: f32,
@@ -35,6 +37,7 @@ const WEIGHTS_ATK: Weights = Weights {
     hole_depth: -10.0,
     h_local_deviation: -5.0,
     h_global_deviation: -4.0,
+    well_f: 3.0,
     average_h :-10.0,
     sum_attack: 40.0,
     sum_downstack: 15.0,
@@ -48,6 +51,7 @@ const WEIGHTS_DS: Weights = Weights {
     hole_depth: -20.0,
     h_local_deviation: -10.0,
     h_global_deviation: -8.0,
+    well_f: 0.0,
     average_h : -20.0,
     sum_attack: 0.0,
     sum_downstack: 35.0,
@@ -66,6 +70,7 @@ const FACTORS_DS: Factors = Factors {
 const CONSTS: Consts = Consts {
     ds_height_threshold: 14.0,
     ds_mode_penalty: -2000.0,
+    well_placement: [1.0, -1.0, 0.8, 1.2, 0.8, 0.8, 1.2, 0.8, -1.0, 1.0],
 };
 
 pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
@@ -163,9 +168,7 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
         }
         if let Some(well) = well {
             avg = (avg * FW as f32 - h[well as usize] as f32) / (FW - 1) as f32;
-        } 
-        if let Some(x) = well {
-            dev_log!(ln, "identified well: \x1b[1m{}\x1b[0m", x);
+            dev_log!(ln, "identified well: \x1b[1m{}\x1b[0m", well);
         }
     }
 
@@ -204,6 +207,8 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
         for x in 0..FW {
             if let Some(w) = well { // Ignore if well
                 if w == x as u8 {
+                    let well_v = (if x != 0 {h[x-1]} else {20}).min(if x != 9 {h[x+1]} else {20}).abs_diff(h[x]);
+                    score += well_v as f32 * weights.well_f * CONSTS.well_placement[x];
                     continue
                 }
             }

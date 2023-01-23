@@ -1,8 +1,8 @@
 use crate::bench_data;
 use std::time::Instant;
 
-use super::{State, Field, Props};
-use super::mac::*;
+use super::{State, Field, Props, Piece};
+use crate::mac::*;
 
 #[derive(Copy, Clone, Debug)]
 pub enum EvaluatorMode {
@@ -13,6 +13,7 @@ pub enum EvaluatorMode {
 struct Consts {
     ds_height_threshold: f32,
     ds_mode_penalty: f32,
+    well_placement_f: f32,
     well_placement: [f32; 10],
 }
 struct Factors {
@@ -24,7 +25,12 @@ struct Weights {
     hole_depth: f32,
     h_local_deviation: f32,
     h_global_deviation: f32,
-    well_f: f32,
+    well_v: f32,
+    well_parity: f32,
+    well_flat_parity: f32, 
+    tspin_flat_bonus: f32,
+    tspin_dist: f32,
+    tspin_completeness: f32,
     average_h: f32,
     sum_attack: f32, 
     sum_downstack: f32,
@@ -37,13 +43,18 @@ const WEIGHTS_ATK: Weights = Weights {
     hole_depth: -10.0,
     h_local_deviation: -5.0,
     h_global_deviation: -4.0,
-    well_f: 3.0,
-    average_h :-10.0,
-    sum_attack: 40.0,
+    well_v: 2.0,
+    well_parity: -2.0,
+    well_flat_parity: 30.0, 
+    tspin_flat_bonus: 30.0,
+    tspin_dist: -6.0,
+    tspin_completeness: 2.0,
+    average_h :0.0,
+    sum_attack: 25.0,
     sum_downstack: 15.0,
-    attack: 35.0,
+    attack: 20.0,
     downstack: 10.0,
-    eff: 50.0,
+    eff: 100.0,
 };
 
 const WEIGHTS_DS: Weights = Weights {
@@ -51,7 +62,12 @@ const WEIGHTS_DS: Weights = Weights {
     hole_depth: -20.0,
     h_local_deviation: -10.0,
     h_global_deviation: -8.0,
-    well_f: 0.0,
+    well_v: 0.0,
+    well_parity: 0.0,
+    well_flat_parity: 0.0, 
+    tspin_flat_bonus: -150.0, // Same as hole
+    tspin_dist: 0.0,
+    tspin_completeness: 0.0,
     average_h : -20.0,
     sum_attack: 0.0,
     sum_downstack: 35.0,
@@ -60,8 +76,8 @@ const WEIGHTS_DS: Weights = Weights {
     eff: 0.0,
 };
 const FACTORS_ATK: Factors = Factors {
-    ideal_h: 5.0,
-    well_threshold: 4.0,
+    ideal_h: 0.0,
+    well_threshold: 1.0,
 };
 const FACTORS_DS: Factors = Factors {
     ideal_h: 0.0,
@@ -70,8 +86,88 @@ const FACTORS_DS: Factors = Factors {
 const CONSTS: Consts = Consts {
     ds_height_threshold: 14.0,
     ds_mode_penalty: -2000.0,
-    well_placement: [1.0, -1.0, 0.8, 1.2, 0.8, 0.8, 1.2, 0.8, -1.0, 1.0],
+    well_placement_f: 100.0,
+    well_placement: [-1.0, -1.0, 0.8, 1.2, 1.0, 1.0, 1.2, 0.8, -1.0, -1.0],
 };
+const TSPIN_NEG: [u16; 3] = [
+    0b110,
+    0b111,
+    0b010,
+];
+fn tspin_check (state: &State, x: usize, y: usize) -> Option<(u8, u8, usize, usize)> {
+    // The x, y point given here is a hole (overhang'ed hole)
+    let f: &Field = &state.field;
+    if y < 1 || y > 18 { return None; }
+        
+    // println!("x: {}, y: {}", x, y);
+    // Check overhang depth (must be 1)
+    if f.m[y+1] & (1 << x) == 0 {
+        return None;
+    }
+    // RIGHT
+    let r: Option<(u8, usize, usize)> = if x <= 7 {'block: {
+        // Check negative
+        for j in 0..3 {
+            //println!("row: {:010b} mask: {:010b}", f.m[y+j-1], TSPIN_NEG[j] << x);
+            if TSPIN_NEG[j] << x & f.m[y+j-1] > 0 {
+                break 'block None;
+            }
+        }
+        // Check bottom far notch (impossible setup if only one is filled)
+        if x < 7 && (f.m[y+1] & (1 << x+2) > 0) ^ ((f.m[y+1] & (1 << x+3) > 0)) {
+            break 'block None;
+        } else if f.m[y+1] & (1 << x+2) == 0 {
+            break 'block None;
+        }
+        // println!("passed right @({}, {})", x, y);
+        // check cleared rows
+        Some((
+            if f.m[y]   == ((1 << 10) - 1) ^ (0b111 << x) {1} else {0} + 
+            if f.m[y+1] == ((1 << 10) - 1) ^ (0b010 << x) {1} else {0},
+            x + 1, y
+        ))
+    }} else { None };
+
+    // LEFT
+    let l: Option<(u8, usize, usize)> = if x >= 2 {'block: {
+        // Check negative
+        for j in 0..3 {
+            //println!("row: {:010b} mask: {:010b}", f.m[y+j-1], crate::field::reverse_bin(TSPIN_NEG[j], 3) << (x-2));
+            if (crate::field::reverse_bin(TSPIN_NEG[j], 3) << (x-2)) & f.m[y+j-1] > 0 {
+                break 'block None;
+            }
+        }
+        // Check bottom far notch (impossible setup if only one is filled)
+        if x > 2 && (f.m[y+1] & (1 << x-2) > 0) ^ (f.m[y+1] & (1 << x-3) > 0) {
+            break 'block None;
+        } else if f.m[y+1] & (1 << x-2) == 0 {
+            break 'block None;
+        }
+        //println!("passed left @({}, {})", x, y);
+        // check cleared rows
+        Some((
+            if f.m[y]   == ((1 << 10) - 1) ^ (0b111 << x-2) {1} else {0} + 
+            if f.m[y+1] == ((1 << 10) - 1) ^ (0b010 << x-2) {1} else {0},
+            x-1, y
+        ))
+    }} else { None };
+    
+    // Calculate dist from T piece.
+    let depth = {
+        let mut depth = if state.hold == Piece::T {1} else {7};
+        for i in 0..state.pieces.len() {
+            if state.pieces[i] == Piece::T {
+                depth = i + 1;
+                break;
+            }
+        }
+        depth as u8
+    };
+    // No need to figure out which one is better, since it's unlikely that both will exist.
+    if let Some(l) = l {Some((depth, l.0, l.1, l.2))} 
+    else if let Some(r) = r {Some((depth, r.0, r.1, r.2))}
+    else {None}
+} 
 
 pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     let start = Instant::now();
@@ -87,7 +183,7 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     const FW: usize = 10;
     const FH: usize = 20;
     let mut h: [u8; FW] = [0; FW];
-    let mut well: Option<u8> = None;
+    let mut well: Option<usize> = None;
 
     // get all column heights
     {
@@ -111,19 +207,31 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     let mut avg: f32 = h.iter().sum::<u8>() as f32 / FW as f32;
 
     // find holes
-    let (holes, hole_depth_sum_sq) = {
+    let (holes, hole_depth_sum_sq, tspin) = {
         let mut holes: f32 = 0.0;
         let mut depth_sum_sq: f32 = 0.0;
+        let mut tspin: Option<(u8, u8, usize, usize)> = None; // (dist from T, clearable rows);
+
         for x in 0..FW {
             for y in (h[x] as usize + 1)..FH {
                 if ( f.m[y] & ( 1 << x ) ) == 0 {
-                    holes += 1.0;
-                    let d: f32 = ((y - h[x] as usize) as f32).abs().min(3.0);
-                    depth_sum_sq += d * d;
+                    if let Some(_tspin) = tspin_check(&state, x, y) {
+                        if let Some(ptspin) = tspin {
+                            if _tspin.0 < ptspin.0 {
+                                tspin = Some(_tspin)
+                            }
+                        } else {
+                            tspin = Some(_tspin);
+                        }
+                    } else {
+                        holes += 1.0;
+                        let d: f32 = ((y - h[x] as usize) as f32).abs().min(3.0);
+                        depth_sum_sq += d * d;
+                    }
                 }
             }
         }
-        (holes, depth_sum_sq)
+        (holes, depth_sum_sq, tspin)
     };
 
     // Select weights
@@ -152,6 +260,13 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
         dev_log!(ln, "holes: {}, penalty: {}", holes, holes * weights.hole);
         dev_log!(ln, "hole depth sq sum: {}, penalty: {}", hole_depth_sum_sq, hole_depth_sum_sq * weights.hole_depth); 
     }
+    // Score by tspin
+    if let Some(tspin) = tspin {
+        dev_log!(ln, "\x1b[1mtspin:\x1b[1m dist: {}, depth: {} @({}, {})", tspin.0, tspin.1, tspin.2, tspin.3);
+        score += weights.tspin_flat_bonus;
+        score += weights.tspin_dist * tspin.0 as f32;
+        score += weights.tspin_completeness * tspin.1 as f32;
+    }
     // Find well (max neg deviation from avg > than threshold)
     {
         for x in 0..10 {
@@ -159,15 +274,15 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
             if d < 0.0 && d.abs() >= factors.well_threshold {
                 if let Some(pwell) = well {
                     if avg - h[pwell as usize] as f32 > d {
-                        well = Some(x as u8);    
+                        well = Some(x);    
                     }
                 } else {
-                    well = Some(x as u8);
+                    well = Some(x);
                 }
             }
         }
         if let Some(well) = well {
-            avg = (avg * FW as f32 - h[well as usize] as f32) / (FW - 1) as f32;
+            avg = (avg * FW as f32 - h[well] as f32) / (FW - 1) as f32;
             dev_log!(ln, "identified well: \x1b[1m{}\x1b[0m", well);
         }
     }
@@ -186,7 +301,15 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
         let mut sum_sq: f32 = 0.0;
         for x in 0..FW {
             if let Some(w) = well { // Ignore if well
-                if w == x as u8 {
+                if w == x {
+                    dev_log!("w ");
+                    continue
+                }
+            }
+            // If tspin, ignore, inherently bumpy
+            if let Some(tspin) = tspin {
+                if x.abs_diff(tspin.2) <= 1 {
+                    dev_log!("t ");
                     continue
                 }
             }
@@ -205,13 +328,30 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
         let mut sum_sq: f32 = 0.0;
         let mut prev: Option<u8> = None;
         for x in 0..FW {
-            if let Some(w) = well { // Ignore if well
-                if w == x as u8 {
-                    let well_v = (if x != 0 {h[x-1]} else {20}).min(if x != 9 {h[x+1]} else {20}).abs_diff(h[x]);
-                    score += well_v as f32 * weights.well_f * CONSTS.well_placement[x];
+            // Score well by height (not clear value)
+            if let Some(w) = well { if x == w {
+                let well_v = (if x != 0 {h[x-1]} else {20}).min(if x != 9 {h[x+1]} else {20}).abs_diff(h[x]);
+                score += well_v as f32 * weights.well_v;
+                score += CONSTS.well_placement_f * CONSTS.well_placement[x];
+                dev_log!("w ");
+
+                // Parity: Ignore if tspin (inherent bad parity) penalize large parity diffs, bonus for flat well.
+                if tspin.is_some() && tspin.as_ref().unwrap().2 != w {
+                    let parity_d = (if x != 0 {h[x-1]} else {h[x+1]}).abs_diff(if x != 9 {h[x+1]} else {h[x-1]}) as f32;
+                    score += parity_d * parity_d * weights.well_parity;
+                    if parity_d == 0.0 { score += weights.well_flat_parity }
+                    dev_log!("par: {} ", parity_d);
+                }
+                continue
+            }}
+            // If tspin, ignore, inherently bumpy
+            if let Some(tspin) = tspin {
+                if x.abs_diff(tspin.2) <= 1 {
+                    dev_log!("t ");
                     continue
                 }
             }
+
             if let Some(prev) = prev { 
                 let d: f32 = h[x].abs_diff(prev) as f32;
                 sum_sq += d * d;
@@ -226,7 +366,7 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
 
     // clear and attack
     {
-        dev_log!(ln, "sum_atk: {}, sum_ds: {}", p.sum_atk, p.sum_ds);
+        dev_log!(ln, "atk: {}, ds: {}; sum_atk: {}, sum_ds: {}", p.atk, p.ds, p.sum_atk, p.sum_ds);
         score += (p.sum_atk as i8 - p.sum_ds as i8) as f32 * weights.eff;
 
         score += p.sum_atk as f32 * weights.sum_attack;
@@ -244,6 +384,8 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
 
 #[cfg(test)] 
 mod test {
+    use std::collections::VecDeque;
+
     use super::*;   
     
     #[test]
@@ -266,10 +408,10 @@ mod test {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_1,
-            0b0_1_0_1_1_0_0_0_0_1,
-            0b1_1_1_1_1_1_1_1_0_1,
-            0b1_1_1_1_1_1_0_1_1_1,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_1_1_0_0_0_0,
+            0b0_0_0_0_0_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
         ];
         let mut state = State::new();
         
@@ -283,5 +425,64 @@ mod test {
         state.props.combo = 0;
     
         dev_log!(ln, "score: \x1b[1m{}\x1b[0m", evaluate(&state, EvaluatorMode::Norm));  
+    }
+    
+    #[test]
+    fn tspin_check_test () {
+        let mut field = Field::new();
+        field.m = [   
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_1_1_0_0_0_0,
+            0b0_0_0_0_0_1_1_1_1_1,
+            0b0_1_1_1_1_1_1_1_1_1,
+        ];
+        let mut state = State::new();
+        
+        state.field = field;
+        //state.pieces.push_back(Piece::T);
+        
+        let out = {
+            let f = &state.field;
+            let mut out: Option<(u8, u8, usize, usize)> = None;
+            for x in 0..10 {
+                for y in 0..20 {
+                    if ( f.m[y] & ( 1 << x ) ) == 0 {
+                        if let Some(_tspin) = tspin_check(&state, x, y) {
+                            if let Some(ptspin) = out {
+                                if _tspin.0 < ptspin.0 {
+                                    out = Some(_tspin)
+                                }
+                            } else {
+                                out = Some(_tspin);
+                            }
+                        }
+                    }
+                }
+            }
+            out
+        };
+        print!("{:?}", out);
+        /*
+        assert!(out.is_some());
+        let out = out.unwrap();
+        assert_eq!(out.1, 2);
+        assert_eq!(out.0, 1);
+         */
     }
 }

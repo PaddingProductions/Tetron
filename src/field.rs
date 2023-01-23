@@ -140,13 +140,18 @@ impl Field {
             }
         }
         // Calc attacks 
-        let atk: u8 = match clears {
-            1 => if mov.tspin {2} else {0},
-            2 => if mov.tspin {4} else {1},
-            3 => if mov.tspin {6} else {2},
-            4 => 4,
-            _ => 0,
-        };
+        let atk: u8 = if clears < 4 && !mov.tspin {
+            match clears {
+                0 => 0,
+                1 => [0, 0, 1, 1, 1, 1, 2, 2, 2, 2][props.combo as usize],
+                2 => [1, 1, 1, 1, 2, 2, 2, 2, 3, 3][props.combo as usize],
+                3 => [2, 2, 3, 3, 4, 4, 5, 5, 6, 6][props.combo as usize],
+                _ => 0
+            }
+        } else if clears > 0 {
+            let t = if mov.tspin {clears} else {0};
+            B2B_TABLE[props.b2b as usize][t][props.combo as usize] as u8
+        } else {0};
 
         // Setting attacks & ds (clears)
         props.atk = atk;
@@ -174,6 +179,34 @@ pub fn reverse_bin (mut x: u16, n: u8) -> u16 {
     }
     r
 }
+
+// tetris, tspins.., <TODO> minis..
+pub const B2B_TABLE: [[[u32; 10]; 4]; 4] = [
+    [
+        [4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        [2, 2, 3, 3, 4, 4, 5, 5, 6, 6],
+        [4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        [6, 7, 9, 10, 12, 13, 15, 16, 18, 19],
+    ],
+    [
+        [5, 6, 7, 8, 10, 11, 12, 13, 15, 16],
+        [3, 3, 4, 5, 6, 6, 7, 8, 9, 9],
+        [5, 6, 7, 8, 10, 11, 12, 13, 15, 16],
+        [7, 8, 10, 12, 14, 15, 17, 19, 21, 22],
+    ],
+    [
+        [6, 7, 9, 10, 12, 13, 15, 16, 18, 19],
+        [4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        [6, 7, 9, 10, 12, 13, 15, 16, 18, 19],
+        [8, 10, 12, 14, 16, 18, 20, 22, 24, 25],
+    ],
+    [
+        [7, 8, 10, 12, 14, 15, 17, 19, 21, 22],
+        [5, 6, 7, 8, 10, 11, 12, 13, 15, 16],
+        [7, 8, 10, 12, 14, 15, 17, 19, 21, 22],
+        [9, 11, 13, 15, 18, 20, 22, 24, 27, 29],
+    ],
+];
 
 pub const PIECE_MAP: [[u32; 4]; 7] = [
     [ // J

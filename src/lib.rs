@@ -69,49 +69,39 @@ impl Props {
 struct BenchData {
     solves: u128,
     evaluator: (u128, u128),
-    check_conflict: (u128, u128),
-    apply_move: (u128, u128),
     gen_moves: (u128, u128),
     apply_key: (u128, u128),
     solve_d0: (u128, u128),
-    clone_as_child: (u128, u128),
 }
-static mut bench_data: BenchData = BenchData {
+static mut BENCH_DATA: BenchData = BenchData {
     solves: 0,
     evaluator: (0, 0),
-    check_conflict: (0, 0),
-    apply_move: (0, 0),
     gen_moves: (0, 0),
     apply_key: (0, 0),
     solve_d0: (0, 0),
-    clone_as_child: (0, 0),
 };
 pub fn bench_reset () {
     unsafe {
-        bench_data = BenchData {
+        BENCH_DATA = BenchData {
             solves: 0,
             evaluator: (0, 0),
-            check_conflict: (0, 0),
-            apply_move: (0, 0),
             gen_moves: (0, 0),
             apply_key: (0, 0),
             solve_d0: (0, 0),
-            clone_as_child: (0, 0),
         };
     }
 }
 pub fn bench_increment_solve () {
     unsafe {
-        bench_data.solves += 1;
+        BENCH_DATA.solves += 1;
     }
 }
 pub fn print_bench_result () { unsafe {
 
-    let d = &bench_data;
+    let d = &BENCH_DATA;
     println!("=== Bench Result ==="); 
     {let t = d.evaluator; println!("evaluator: avg dt: {}, cnt: {}, total dt: {:.3}", t.0, t.1, (t.0*t.1/d.solves) as f64/1000.0);}
     {let t = d.gen_moves; println!("gen_moves: avg dt: {}, cnt: {}, total dt: {:.3}", t.0, t.1, (t.0*t.1/d.solves) as f64/1000.0);}
     {let t = d.apply_key; println!("apply_key: avg dt: {}, cnt: {}, total dt: {:.3}", t.0, t.1, (t.0*t.1/d.solves) as f64/1000.0);}
-    {let t = d.clone_as_child; println!("clone_as_child: avg dt: {}, cnt: {}, total dt: {:.3}", t.0, t.1, (t.0*t.1/d.solves) as f64/1000.0);}
     {let t = d.solve_d0; println!("solve_d0: avg dt: {}, cnt: {}, total dt: {:.3}", t.0, t.1, (t.0*t.1/d.solves) as f64/1000.0);}
 }}

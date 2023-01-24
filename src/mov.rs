@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::bench_data;
+use crate::BENCH_DATA;
 use super::{Key, Piece, Field};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -75,9 +75,9 @@ impl Move {
     pub fn apply_key(self: &mut Self, key: &Key, field: &Field, piece: &Piece, hold: &Piece) -> bool {
         let start = Instant::now();
         defer!(unsafe {
-            bench_data.apply_key.1 += 1;
+            BENCH_DATA.apply_key.1 += 1;
             let dt = start.elapsed().as_micros();
-            bench_data.apply_key.0 = if bench_data.apply_key.0 == 0 {dt} else {(bench_data.apply_key.0 + dt) / 2};
+            BENCH_DATA.apply_key.0 = if BENCH_DATA.apply_key.0 == 0 {dt} else {(BENCH_DATA.apply_key.0 + dt) / 2};
         });
 
         let p: &Piece = if self.hold {hold} else {piece};

@@ -1,9 +1,6 @@
 use std::collections::VecDeque;
-use std::time::Instant;
 
 use super::{Props, Field, Piece, Move};
-use crate::bench_data;
-
 
 pub struct State {
     pub pieces: VecDeque<Piece>,
@@ -25,14 +22,6 @@ impl State {
     }
 
     pub fn clone_as_child (&self, mut field: Field, mov: &Move) -> State {
-        // Benching
-        let start = Instant::now();
-        defer!(unsafe { 
-            bench_data.clone_as_child.1 += 1;
-            let dt = start.elapsed().as_micros();
-            bench_data.clone_as_child.0 = if bench_data.clone_as_child.0 == 0 {dt} else {(bench_data.clone_as_child.0 + dt) / 2};
-        });
-
         let mut props: Props = Props { 
             sum_atk: self.props.sum_atk + self.props.atk,
             sum_ds: self.props.sum_ds + self.props.ds,

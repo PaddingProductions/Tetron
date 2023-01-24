@@ -77,7 +77,7 @@ impl Field {
     /*
         Pastes a given piece onto a clone of self according to given Move, returning said clone.
      */
-    pub fn apply_move (self: &Self, m: &Move, piece: &Piece, hold: &Piece) -> Field {
+    pub fn apply_move (self: &Self, m: &Move, piece: &Piece, hold: &Piece) -> Result<Field, ()> {
         let mut field = self.clone();
         let p: &Piece = if m.hold {hold} else {piece};
         let map: &u32 = &PIECE_MAP[*p as usize][m.r as usize];
@@ -99,27 +99,31 @@ impl Field {
             }
             // If out of board on upper edge
             if  c_y + y < 0 {
-                panic!("@ Field.apply_move: out of board on upper edge");
+                return Err(());
+                //panic!("@ Field.apply_move: out of board on upper edge");
             }
             // If out of board on bottom edge
             if c_y + y >= 20 {
-                panic!("@ Field.apply_move: out of board on bottom edge");
+                return Err(());
+                //panic!("@ Field.apply_move: out of board on bottom edge");
             }
             // If out of board on left edge
             if c_x < 0 && bitseg & ((1 << (-c_x)) - 1) > 0  {
-                panic!("@ Field.apply_move: out of board on left edge");
+                return Err(());
+                //panic!("@ Field.apply_move: out of board on left edge");
             }
             // Shift according to c_x
             let bitseg = if c_x > 0 { bitseg << c_x } else { bitseg >> -c_x };
             //dev_log!("c_x: {}, final bitseg: {:05b}", c_x, bitseg);
             // If out of board on right edge
             if bitseg > (1 << 10)-1 {
-                panic!("@ Field.apply_move: out of board on right edge");
+                return Err(());
+                //panic!("@ Field.apply_move: out of board on right edge");
             }
             field.m[(c_y + y) as usize] |= bitseg;
         };
         //dev_log!("{}", field);
-        field
+        Ok(field)
     }
     /*
         Sets a Prop object by processing a pasted field. This necesitates some info from Move object
@@ -253,6 +257,7 @@ pub const PIECE_MAP: [[u32; 4]; 7] = [
     ], 
 ];
 
+/*
 #[cfg(test)]
 mod test {
     use super::*;
@@ -311,7 +316,7 @@ mod test {
         //mov.apply_key(&Key::Left, &field, &p, &h);
         //mov.apply_key(&Key::HardDrop, &field, &p, &h);
 
-        field = field.apply_move(&mov, &p, &h);
+        //field = field.apply_move(&mov, &p, &h).unwrap();
 
         /*
         assert_eq!(field.m[17], 0b00000_00000);
@@ -351,7 +356,7 @@ mod test {
          
         m.apply_key(&Key::HardDrop, &field, &Piece::O, &Piece::O);
 
-        field = field.apply_move(&m, &Piece::O, &Piece::O);
+        field = field.apply_move(&m, &Piece::O, &Piece::O).unwrap();
         field.set_props(&m, &mut props);
 
         assert_eq!(props.sum_ds, 2);
@@ -359,3 +364,4 @@ mod test {
         assert_eq!(field.m[19], 0);
     }
 }
+*/

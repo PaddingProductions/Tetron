@@ -1,4 +1,4 @@
-use crate::bench_data;
+use crate::BENCH_DATA;
 use std::time::Instant;
 
 use super::{State, Field, Props, Piece};
@@ -12,6 +12,7 @@ pub enum EvaluatorMode {
 }
 struct Consts {
     ds_height_threshold: f32,
+    ds_hole_threshold: f32,
     ds_mode_penalty: f32,
     well_placement_f: f32,
     well_placement: [f32; 10],
@@ -27,6 +28,7 @@ struct Weights {
     h_global_deviation: f32,
     well_v: f32,
     well_parity: f32,
+    well_odd_par: f32,
     well_flat_parity: f32, 
     tspin_flat_bonus: f32,
     tspin_dist: f32,
@@ -43,13 +45,14 @@ const WEIGHTS_ATK: Weights = Weights {
     hole_depth: -10.0,
     h_local_deviation: -5.0,
     h_global_deviation: -4.0,
-    well_v: 2.0,
-    well_parity: -2.0,
-    well_flat_parity: 30.0, 
-    tspin_flat_bonus: 30.0,
-    tspin_dist: -6.0,
-    tspin_completeness: 2.0,
-    average_h :0.0,
+    well_v: 1.0,
+    well_parity: -3.0,
+    well_odd_par: -30.0,
+    well_flat_parity: 40.0, 
+    tspin_flat_bonus: 40.0,
+    tspin_dist: -2.0,
+    tspin_completeness: 4.0,
+    average_h : -1.0,
     sum_attack: 25.0,
     sum_downstack: 15.0,
     attack: 20.0,
@@ -64,6 +67,7 @@ const WEIGHTS_DS: Weights = Weights {
     h_global_deviation: -8.0,
     well_v: 0.0,
     well_parity: 0.0,
+    well_odd_par: 0.0,
     well_flat_parity: 0.0, 
     tspin_flat_bonus: -150.0, // Same as hole
     tspin_dist: 0.0,
@@ -77,7 +81,7 @@ const WEIGHTS_DS: Weights = Weights {
 };
 const FACTORS_ATK: Factors = Factors {
     ideal_h: 0.0,
-    well_threshold: 1.0,
+    well_threshold: 3.0,
 };
 const FACTORS_DS: Factors = Factors {
     ideal_h: 0.0,
@@ -85,8 +89,9 @@ const FACTORS_DS: Factors = Factors {
 };
 const CONSTS: Consts = Consts {
     ds_height_threshold: 14.0,
-    ds_mode_penalty: -2000.0,
-    well_placement_f: 100.0,
+    ds_hole_threshold: 1.0,
+    ds_mode_penalty: -1000.0,
+    well_placement_f: 70.0,
     well_placement: [-1.0, -1.0, 0.8, 1.2, 1.0, 1.0, 1.2, 0.8, -1.0, -1.0],
 };
 const TSPIN_NEG: [u16; 3] = [
@@ -172,9 +177,9 @@ fn tspin_check (state: &State, x: usize, y: usize) -> Option<(u8, u8, usize, usi
 pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     let start = Instant::now();
     defer!(unsafe {
-        bench_data.evaluator.1 += 1;
+        BENCH_DATA.evaluator.1 += 1;
         let dt = start.elapsed().as_micros();
-        bench_data.evaluator.0 = if bench_data.evaluator.0 == 0 {dt} else {(bench_data.evaluator.0 + dt) / 2};
+        BENCH_DATA.evaluator.0 = if BENCH_DATA.evaluator.0 == 0 {dt} else {(BENCH_DATA.evaluator.0 + dt) / 2};
     });
 
     let f: &Field = &state.field;
@@ -241,7 +246,7 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     let (weights, factors) = {
         match mode {
             EvaluatorMode::Norm => 
-                if  FH as f32 - avg > CONSTS.ds_height_threshold || holes > 0.0 {
+                if  FH as f32 - avg >= CONSTS.ds_height_threshold || holes >= CONSTS.ds_hole_threshold {
                     dev_log!(ln, "DS penalty: {}", CONSTS.ds_mode_penalty);
                     score += CONSTS.ds_mode_penalty;
                     (WEIGHTS_DS, FACTORS_DS)
@@ -306,19 +311,16 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
                     continue
                 }
             }
-            // If tspin, ignore, inherently bumpy
-            if let Some(tspin) = tspin {
-                if x.abs_diff(tspin.2) <= 1 {
-                    dev_log!("t ");
-                    continue
-                }
-            }
-
             let d: f32 = avg - h[x] as f32;
-            
             dev_log!("{} ", d);
             sum_sq += d * d;
         }
+        // If tspin, compensate w/ [2, 1, 0]
+        if tspin.is_some() {
+            dev_log!("t-spin compensation: {}", 5.0 * weights.h_global_deviation);
+            score -= 5.0 * weights.h_global_deviation;
+        }
+
         dev_log!(ln, ", sum_sq: {}, penalty: {}", sum_sq, sum_sq * weights.h_global_deviation);
         score += sum_sq * weights.h_global_deviation;
     }
@@ -330,18 +332,27 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
         for x in 0..FW {
             // Score well by height (not clear value)
             if let Some(w) = well { if x == w {
-                let well_v = (if x != 0 {h[x-1]} else {20}).min(if x != 9 {h[x+1]} else {20}).abs_diff(h[x]);
+                let well_v = (0..20).fold(0, |y, _| if f.m[y] == ((1 << 10)-1) - (1 << w) {1} else {0});
+
+                //let well_v = (if x != 0 {h[x-1]} else {20}).min(if x != 9 {h[x+1]} else {20}).abs_diff(h[x]);
                 score += well_v as f32 * weights.well_v;
                 score += CONSTS.well_placement_f * CONSTS.well_placement[x];
                 dev_log!("w ");
 
-                // Parity: Ignore if tspin (inherent bad parity) penalize large parity diffs, bonus for flat well.
-                if tspin.is_some() && tspin.as_ref().unwrap().2 != w {
-                    let parity_d = (if x != 0 {h[x-1]} else {h[x+1]}).abs_diff(if x != 9 {h[x+1]} else {h[x-1]}) as f32;
-                    score += parity_d * parity_d * weights.well_parity;
-                    if parity_d == 0.0 { score += weights.well_flat_parity }
-                    dev_log!("par: {} ", parity_d);
-                }
+                // Parity: penalize large parity diffs, bonus for flat well.
+                let d = (if x != 0 {h[x-1]} else {h[x+1]}).abs_diff(if x != 9 {h[x+1]} else {h[x-1]});
+                
+                // Tspins: Subtract one from delta, due to inherent odd parity. 
+                //         Promote an even-residue overhang for better contiuation.
+                if let Some(tspin) = tspin { if tspin.2 == w { 
+                    score -= 4.0 * weights.well_parity;
+                    if d == 3 { score += weights.well_flat_parity }
+                }}        
+                score +=  (d * d) as f32 * weights.well_parity;
+                if d % 2 == 1 { score += weights.well_odd_par };
+                if d == 0 { score += weights.well_flat_parity }
+                dev_log!("par: {} ", d);
+                
                 continue
             }}
             // If tspin, ignore, inherently bumpy
@@ -384,8 +395,6 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
 
 #[cfg(test)] 
 mod test {
-    use std::collections::VecDeque;
-
     use super::*;   
     
     #[test]

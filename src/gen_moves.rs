@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::Instant;
 
 use super::{Field, Move, State, Key, Piece};
-use crate::bench_data;
+use crate::BENCH_DATA;
 /* 
     Generates all valid Moves that can be applied to a given state. 
     Implemented via BFS for finesse. 
@@ -14,9 +14,9 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
     // Benching
     let start = Instant::now();
     defer!(unsafe { 
-        bench_data.gen_moves.1 += 1;
+        BENCH_DATA.gen_moves.1 += 1;
         let dt = start.elapsed().as_micros();
-        bench_data.gen_moves.0 = if bench_data.gen_moves.0 == 0 {dt} else {(bench_data.gen_moves.0 + dt) / 2};
+        BENCH_DATA.gen_moves.0 = if BENCH_DATA.gen_moves.0 == 0 {dt} else {(BENCH_DATA.gen_moves.0 + dt) / 2};
     });
 
 
@@ -61,9 +61,10 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
             }
             // If harddropped, check field hash.
             if m.lock {
-                let field: Field = state.field.apply_move(&m, piece, hold);
-                if !field_hash.contains_key(&field) {
-                    field_hash.insert(field, m);
+                if let Ok(field) = state.field.apply_move(&m, piece, hold) {
+                    if !field_hash.contains_key(&field) {
+                        field_hash.insert(field, m);
+                    }
                 }
             } else {
                 move_hash.insert(m.clone());

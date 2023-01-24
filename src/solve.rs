@@ -5,9 +5,9 @@ use rayon::prelude::*;
 
 
 const INHERITANCE_F: f32 = 0.0;
-const SCORE_CUTOFF_FACTOR: [f32; 3] = [0.3, 0.25, 0.2];
-const STRICT_CUTOFF: [usize; 3] = [10, 8, 5];
-static mut expansions: u32 = 0;
+const SCORE_CUTOFF_FACTOR: [f32; 3] = [0.4, 0.3, 0.25];
+const STRICT_CUTOFF: [usize; 3] = [12, 11, 10];
+static mut EXPANSIONS: u32 = 0;
 
 pub fn solve (state: &State, depth: u8, mode: Option<EvaluatorMode>) -> Option<(State, Move, f32)> {
     let mode = mode.unwrap_or_else(|| EvaluatorMode::Norm);
@@ -64,10 +64,10 @@ pub fn solve (state: &State, depth: u8, mode: Option<EvaluatorMode>) -> Option<(
     
     //println!("expanded: {} @ depth={}", queue.len(), depth);
     unsafe {
-        expansions += queue.len() as u32;
+        EXPANSIONS += queue.len() as u32;
         if depth == 3 {
-            println!("expansions: {}", expansions); 
-            expansions = 0;
+            println!("expansions: {}", EXPANSIONS); 
+            EXPANSIONS = 0;
         }
     }
     queue.pop()
@@ -85,12 +85,12 @@ mod tests {
         crate::bench_reset();
 
         let mut state: State = State::new();
-        state.pieces.push_back(Piece::S);
-        state.pieces.push_back(Piece::O);
-        state.pieces.push_back(Piece::Z);
-        state.pieces.push_back(Piece::T);
         state.pieces.push_back(Piece::I);
-        state.hold = Piece::I;
+        state.pieces.push_back(Piece::L);
+        state.pieces.push_back(Piece::O);
+        state.pieces.push_back(Piece::T);
+        state.pieces.push_back(Piece::J);
+        state.hold = Piece::S;
 
         state.field.m = [   
             0b0_0_0_0_0_0_0_0_0_0,
@@ -110,9 +110,9 @@ mod tests {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_1_0,
-            0b1_0_1_1_1_1_1_1_1_1,
+            0b1_1_1_0_0_0_1_1_0_0,
+            0b1_1_1_1_0_0_1_1_1_0,
+            0b1_1_1_1_1_0_1_1_1_0,
         ];
 
         bench_increment_solve();

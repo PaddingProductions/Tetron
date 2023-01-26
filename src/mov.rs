@@ -99,6 +99,12 @@ impl Move {
                     return false;
                 }
             }, 
+            Key::DASLeft => {
+                while self.apply_key(&Key::Left, field, piece, hold) {}
+            }, 
+            Key::DASRight => {
+                while self.apply_key(&Key::Right, field, piece, hold) {}
+            }, 
             Key::SoftDrop => {
                 while !field.check_conflict(&*self, p) {
                     self.y += 1;

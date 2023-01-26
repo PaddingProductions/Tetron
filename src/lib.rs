@@ -28,10 +28,12 @@ pub enum Piece {
     None,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum Key {
     Left,
     Right,
+    DASLeft,
+    DASRight,
     Cw,
     Ccw,
     _180,

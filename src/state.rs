@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use super::{Props, Field, Piece, Move};
 
+#[derive(Clone)]
 pub struct State {
     pub pieces: VecDeque<Piece>,
     pub hold: Piece,

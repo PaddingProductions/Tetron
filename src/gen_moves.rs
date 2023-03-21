@@ -3,6 +3,8 @@ use std::time::Instant;
 
 use super::{Field, Move, State, Key, Piece};
 use crate::BENCH_DATA;
+
+
 /* 
     Generates all valid Moves that can be applied to a given state. 
     Implemented via BFS for finesse. 

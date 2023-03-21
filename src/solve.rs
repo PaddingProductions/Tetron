@@ -3,12 +3,15 @@ use super::{State, Field, Move, gen_moves, evaluate, EvaluatorMode};
 use std::collections::HashMap;
 use rayon::prelude::*;
 
+
+
 const INHERITANCE_F: f32 = 0.0;
 const SCORE_CUTOFF_FACTOR: [f32; 3] = [0.4, 0.3, 0.25];
 const STRICT_CUTOFF: [usize; 3] = [12, 11, 10];
 static mut EXPANSIONS: u32 = 0;
 
 pub fn solve (state: &State, depth: u8, mode: Option<EvaluatorMode>) -> Option<(State, Move, f32)> {
+
     let mode = mode.unwrap_or_else(|| EvaluatorMode::Norm);
     let moves: HashMap<Field, Move> = gen_moves(state);
     let mut queue: Vec<(State, Move, f32)> = vec![];
@@ -22,6 +25,7 @@ pub fn solve (state: &State, depth: u8, mode: Option<EvaluatorMode>) -> Option<(
     }
     // Sort reverse
     queue.sort_by(|a, b| a.2.total_cmp(&b.2));
+
 
     // If empty (game over)
     if queue.is_empty() {

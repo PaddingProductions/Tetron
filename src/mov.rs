@@ -8,7 +8,7 @@ pub struct Move {
     pub x: i8,
     pub y: i8,
     pub r: u8,
-    pub s: u8,
+    pub s: i8, // -1 for none, -2 if just softdropped, should copy on next spin.
     pub tspin: bool,
     pub hold: bool,
     pub lock: bool
@@ -20,7 +20,7 @@ impl Move {
             x: 4,
             y: 1,
             r: 0,
-            s: 0,
+            s: -1, 
             tspin: false,
             hold: false,
             lock: false,
@@ -95,6 +95,10 @@ impl Move {
                 }
             }, 
             Key::Cw | Key::Ccw | Key::_180 => {
+                if self.s == -2 {
+                    self.s = self.r as i8;
+                }
+                    
                 let d: i8 = if *key == Key::Cw {1} else if *key == Key::Ccw {-1} else {2};
                 
                 if !self.apply_spin(field, p, &d) {
@@ -112,6 +116,7 @@ impl Move {
                     self.y += 1;
                 }
                 self.y -= 1;
+                self.s = -2; // Read comment on declaration. Spin tracking.
             },
             Key::HardDrop => {
                 while !field.check_conflict(&*self, p) {

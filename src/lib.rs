@@ -16,6 +16,25 @@ pub use evaluator::{evaluate, EvaluatorMode};
 #[macro_use(defer)]
 extern crate scopeguard;
 
+// WASM CONSOLE
+// use wasm_bindgen::prelude::*;
+// use web_sys::console;
+
+/*
+#[macro_export]
+macro_rules! console_log {
+    ($($arg: expr), *) => {
+        console::log_1(
+            &JsValue::from_str(
+                &format!(
+                    $( $arg, )*
+                )
+            )
+        );
+    }
+}
+*/
+
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum Piece {
     J = 0,

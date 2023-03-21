@@ -12,12 +12,14 @@ use crate::BENCH_DATA;
  */
 pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
     // Benching
-    let start = Instant::now();
-    defer!(unsafe { 
-        BENCH_DATA.gen_moves.1 += 1;
-        let dt = start.elapsed().as_micros();
-        BENCH_DATA.gen_moves.0 = if BENCH_DATA.gen_moves.0 == 0 {dt} else {(BENCH_DATA.gen_moves.0 + dt) / 2};
-    });
+    if cfg!(feature = "bench") {
+        let start = Instant::now();
+        defer!(unsafe { 
+            BENCH_DATA.gen_moves.1 += 1;
+            let dt = start.elapsed().as_micros();
+            BENCH_DATA.gen_moves.0 = if BENCH_DATA.gen_moves.0 == 0 {dt} else {(BENCH_DATA.gen_moves.0 + dt) / 2};
+        });
+    }
 
 
     // Check if there is even a piece to expand on.

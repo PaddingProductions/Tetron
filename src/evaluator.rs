@@ -175,12 +175,15 @@ fn tspin_check (state: &State, x: usize, y: usize) -> Option<(u8, u8, usize, usi
 } 
 
 pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
-    let start = Instant::now();
-    defer!(unsafe {
-        BENCH_DATA.evaluator.1 += 1;
-        let dt = start.elapsed().as_micros();
-        BENCH_DATA.evaluator.0 = if BENCH_DATA.evaluator.0 == 0 {dt} else {(BENCH_DATA.evaluator.0 + dt) / 2};
-    });
+    
+    if cfg!(feature = "bench") {
+        let start = Instant::now();
+        defer!(unsafe {
+            BENCH_DATA.evaluator.1 += 1;
+            let dt = start.elapsed().as_micros();
+            BENCH_DATA.evaluator.0 = if BENCH_DATA.evaluator.0 == 0 {dt} else {(BENCH_DATA.evaluator.0 + dt) / 2};
+        });
+    }
 
     let f: &Field = &state.field;
     let p: &Props = &state.props;

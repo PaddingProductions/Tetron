@@ -73,13 +73,15 @@ impl Move {
         Returns whether the key affects the attributes 
      */
     pub fn apply_key(self: &mut Self, key: &Key, field: &Field, piece: &Piece, hold: &Piece) -> bool {
-        let start = Instant::now();
-        defer!(unsafe {
-            BENCH_DATA.apply_key.1 += 1;
-            let dt = start.elapsed().as_micros();
-            BENCH_DATA.apply_key.0 = if BENCH_DATA.apply_key.0 == 0 {dt} else {(BENCH_DATA.apply_key.0 + dt) / 2};
-        });
-
+        if cfg!(feature = "bench") {
+            let start = Instant::now();
+            defer!(unsafe {
+                BENCH_DATA.apply_key.1 += 1;
+                let dt = start.elapsed().as_micros();
+                BENCH_DATA.apply_key.0 = if BENCH_DATA.apply_key.0 == 0 {dt} else {(BENCH_DATA.apply_key.0 + dt) / 2};
+            });
+        }
+        
         let p: &Piece = if self.hold {hold} else {piece};
 
         match key {

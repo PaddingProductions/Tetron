@@ -3,7 +3,6 @@ use super::{State, Field, Move, gen_moves, evaluate, EvaluatorMode};
 use std::collections::HashMap;
 use rayon::prelude::*;
 
-
 const INHERITANCE_F: f32 = 0.0;
 const SCORE_CUTOFF_FACTOR: [f32; 3] = [0.4, 0.3, 0.25];
 const STRICT_CUTOFF: [usize; 3] = [12, 11, 10];
@@ -116,16 +115,21 @@ mod tests {
         ];
 
         bench_increment_solve();
-        let start = Instant::now();
+        let start = if cfg!(feature = "bench") { Some(Instant::now()) } else { None };
+
         if let Some(out) = solve(&state, 3, None) {
-            let dt = start.elapsed().as_millis();
             
             // Log out result
             println!("result score: \x1b[1m{}\x1b[0m", out.2);
             println!("{}", &out.0);
             println!("move: {:?}", &out.1);
             println!("prop: {:?}", &out.0.props);
-            println!("dt: \x1b[1m{}\x1b[0mms", dt);
+
+            // Time
+            if let Some(time) = start {
+                let dt = time.elapsed().as_millis();
+                println!("dt: \x1b[1m{}\x1b[0mms", dt);
+            }
         } else {
             println!("No results found.");
         }

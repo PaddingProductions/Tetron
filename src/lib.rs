@@ -1,3 +1,17 @@
+//#![warn(missing_docs)]
+
+//! _Tetron_ - A Tetris Bot in Rust for the multiplayer ruleset
+//!
+//! Uses trivial DFS for exploration and BFS on keystrokes for placements.
+//! Written in Rust for memory safety and fast allocation speeds.
+//!
+//! Example:
+//! ```
+//! const state = tetron::State::new();
+//! // .. set state
+//! const (output, mov, score) = tetron::solve(state, 2, tetron::EvaluatorMode::Norm);
+//! ```
+
 pub mod solve;
 pub mod gen_moves;
 pub mod field;
@@ -35,6 +49,7 @@ macro_rules! console_log {
 }
 */
 
+/// Enumeration representing Tetris Piece types.
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum Piece {
     J = 0,
@@ -47,6 +62,7 @@ pub enum Piece {
     None,
 }
 
+/// Enumeration representing possible keystrokes.
 #[derive(PartialEq, Clone)]
 pub enum Key {
     Left,
@@ -61,6 +77,12 @@ pub enum Key {
     Hold,
 }
 
+/// Minimalist structure containing properties of a state.
+/// 
+/// Concentrates all attributes of a given state into one object.
+///
+/// Non-intuitive attributes:
+/// `sum_no_atk`: Downstack lines without an attack.
 #[derive(Copy, Clone, Debug)]
 pub struct Props {
     pub sum_atk: u8,
@@ -72,6 +94,7 @@ pub struct Props {
     pub combo: u8,
     pub clears: u32,
 }
+
 impl Props {
     pub fn new () -> Self {
         Self {
@@ -101,6 +124,10 @@ static mut BENCH_DATA: BenchData = BenchData {
     apply_key: (0, 0),
     solve_d0: (0, 0),
 };
+/// Resets globally stored bench data. Developer Tool.
+///
+/// Unsafe function reseting data for development bench tests.
+/// Should only be used in development.
 pub fn bench_reset () {
     unsafe {
         BENCH_DATA = BenchData {
@@ -112,11 +139,20 @@ pub fn bench_reset () {
         };
     }
 }
+/// Increments solve counter. Developer Tool.
+///
+/// Unsafe function incrementing a vital counter in analyzing bench data. 
+/// Should only be used in development.
 pub fn bench_increment_solve () {
     unsafe {
         BENCH_DATA.solves += 1;
     }
 }
+
+/// Prints bench data. Developer Tool.
+///
+/// Unsafe as it interacts with globally exposed bench data.
+/// Should only be used in development.
 pub fn print_bench_result () { unsafe {
 
     let d = &BENCH_DATA;

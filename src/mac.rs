@@ -1,3 +1,4 @@
+/// Conditional logging depending on environment variable setting. Developer Macro.
 macro_rules! dev_log {
     ($s:literal) => {
         if std::env::var("LOG").is_ok() {

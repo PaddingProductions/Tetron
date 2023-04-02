@@ -1,13 +1,19 @@
+//! Module isolating heuristics function.
+
 use crate::BENCH_DATA;
 use std::time::Instant;
 
 use super::{State, Field, Props, Piece};
 use crate::mac::*;
 
+/// Enumeration representing possible modes for heuristic function
 #[derive(Copy, Clone, Debug)]
 pub enum EvaluatorMode {
+    /// Normal Mode - Evaluator decides mode
     Norm,
+    /// Attack Mode - Prioritizes attacks.
     Attack,
+    /// Downstack Mode - Prioritizes downstack.
     DS,
 }
 struct Consts {
@@ -99,6 +105,7 @@ const TSPIN_NEG: [u16; 3] = [
     0b111,
     0b010,
 ];
+
 fn tspin_check (state: &State, x: usize, y: usize) -> Option<(u8, u8, usize, usize)> {
     // The x, y point given here is a hole (overhang'ed hole)
     let f: &Field = &state.field;
@@ -174,6 +181,9 @@ fn tspin_check (state: &State, x: usize, y: usize) -> Option<(u8, u8, usize, usi
     else {None}
 } 
 
+/// Core heuristic function.
+///
+/// <TODO>: Heuristic list
 pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     
     if cfg!(feature = "bench") {

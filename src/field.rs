@@ -2,9 +2,13 @@ use super::{Piece, Move, Props};
 
 use std::fmt;
 
+/// Effective allias for `[u16; 20]`, representing the game board.
+/// 
+/// Minial memory footprint.
+/// Implements getting, setting, and helper functions.
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Field {
-    pub m: [u16; 20],
+    pub m: [u16; 20]
 }
 impl fmt::Display for Field {
     fn fmt (&self, f: &mut fmt::Formatter) -> fmt::Result { 
@@ -29,6 +33,9 @@ impl Field {
             m: [0; 20],
         }
     }
+    /// Given a piece and the coresponding movement, return if it conflicts with self.
+    ///
+    /// Heavy bitmasking and manipulation.
     pub fn check_conflict (self: &Self, m: &Move, p: &Piece) -> bool {
         let map: &u32 = &PIECE_MAP[*p as usize][m.r as usize];
         let n: i8 = if *p == Piece::I {5} else {3};
@@ -74,9 +81,8 @@ impl Field {
         };
         false
     }   
-    /*
-        Pastes a given piece onto a clone of self according to given Move, returning said clone.
-     */
+    
+    /// Pastes a given piece onto a clone of self according to given move, returning said clone.
     pub fn apply_move (self: &Self, m: &Move, piece: &Piece, hold: &Piece) -> Result<Field, ()> {
         let mut field = self.clone();
         let p: &Piece = if m.hold {hold} else {piece};
@@ -125,9 +131,12 @@ impl Field {
         //dev_log!("{}", field);
         Ok(field)
     }
-    /*
-        Sets a Prop object by processing a pasted field. This necesitates some info from Move object
-     */
+
+    /// Processes self after a move is pasted. Writes attributes into `Prop` object.
+    ///
+    /// Clears lines. 
+    /// Calculates attacks.
+    /// This necesitates some info from `Move` object, thus the parameter.
     pub fn set_props (self: &mut Self, mov: &Move, props: &mut Props) {
         // Clear rows
         let mut clears: usize = 0;
@@ -174,6 +183,7 @@ impl Field {
     }
 }
 
+/// Reverses the parameter's binary representation, given the width.
 pub fn reverse_bin (mut x: u16, n: u8) -> u16 {
     let mut r: u16 = 0;
     for _ in 0..n {
@@ -184,7 +194,8 @@ pub fn reverse_bin (mut x: u16, n: u8) -> u16 {
     r
 }
 
-// tetris, tspins.., <TODO> minis..
+/// Attack table, ripped from Tetr.io
+// <TODO>: T-spin Minis
 pub const B2B_TABLE: [[[u32; 10]; 4]; 4] = [
     [
         [4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
@@ -212,6 +223,9 @@ pub const B2B_TABLE: [[[u32; 10]; 4]; 4] = [
     ],
 ];
 
+/// Binary representation of piece shapes.
+///
+/// Visually inversed, due to bit order.
 pub const PIECE_MAP: [[u32; 4]; 7] = [
     [ // J
         0b100_111_000,

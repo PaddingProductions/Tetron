@@ -1,3 +1,5 @@
+//! Module isolating `gen_moves` function
+
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::Instant;
 
@@ -5,13 +7,13 @@ use super::{Field, Move, State, Key, Piece};
 use crate::BENCH_DATA;
 
 
-/* 
-    Generates all valid Moves that can be applied to a given state. 
-    Implemented via BFS for finesse. 
-    Starting with the base move, expand it by adding another key to the move.
-    Append only valid and unique moves into the BFS queue. 
-    Uniqueness of Field is guarenteed via a Hashset<T>. This, in turn, guarentees uniqueness in Moves.
- */
+ 
+/// Generates all valid Moves that can be applied to a given state. 
+///
+/// Implemented with BFS for finesse. 
+/// Starting with the base move, expand it by adding another key to the move.
+/// Append only valid and unique moves into the BFS queue. 
+/// Uniqueness of Field is guarenteed via a Hashset<T>. This, in turn, guarentees uniqueness in Moves.
 pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
     // Benching
     if cfg!(feature = "bench") {

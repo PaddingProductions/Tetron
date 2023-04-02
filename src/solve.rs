@@ -1,3 +1,5 @@
+//! Module isolating `solve()` function.
+
 use super::{State, Field, Move, gen_moves, evaluate, EvaluatorMode};
 
 use std::collections::HashMap;
@@ -10,6 +12,13 @@ const SCORE_CUTOFF_FACTOR: [f32; 3] = [0.4, 0.3, 0.25];
 const STRICT_CUTOFF: [usize; 3] = [12, 11, 10];
 static mut EXPANSIONS: u32 = 0;
 
+/// Core function of Tetron. Produces an optimal move from input state.
+///
+/// `depth` parameter configures DFS depth in exploration.
+/// `mode` parameter alters bot behavior & priority. Defaults to `Norm`. Used for topical testing. 
+/// 
+/// Returns the selected Move, the resultant State, and the calculated score.
+/// Bot behavior configurable via source code. 
 pub fn solve (state: &State, depth: u8, mode: Option<EvaluatorMode>) -> Option<(State, Move, f32)> {
 
     let mode = mode.unwrap_or_else(|| EvaluatorMode::Norm);

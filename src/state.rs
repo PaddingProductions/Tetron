@@ -2,6 +2,9 @@ use std::collections::VecDeque;
 
 use super::{Props, Field, Piece, Move};
 
+/// Structure representing any possible 'state' of the game.
+///
+/// Minialized to optimize memory allocation footprint.
 #[derive(Clone)]
 pub struct State {
     pub pieces: VecDeque<Piece>,
@@ -10,6 +13,7 @@ pub struct State {
     pub props: Props,
 }
 impl State {
+    /// Spawns new `State` instance.
     pub fn new () -> Self {
         let mut pieces = VecDeque::new();
         pieces.reserve(6);
@@ -22,6 +26,10 @@ impl State {
         }
     }
 
+    /// Clones a 'child' to the state. 
+    ///
+    /// Sets particular attributes according to the property inheritance policies.
+    /// Used to spawn a child state to set a piece placement on.
     pub fn clone_as_child (&self, mut field: Field, mov: &Move) -> State {
         let mut props: Props = Props { 
             sum_atk: self.props.sum_atk + self.props.atk,
@@ -59,7 +67,6 @@ impl State {
 }
 
 use std::fmt;
-
 impl fmt::Display for State {
     fn fmt (&self, f: &mut fmt::Formatter) -> fmt::Result { 
         for y in 0..20 {

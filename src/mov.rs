@@ -3,6 +3,9 @@ use std::time::Instant;
 use crate::BENCH_DATA;
 use super::{Key, Piece, Field};
 
+/// Minimalist structure containing properties of a piece placement.
+///
+/// Optimized memory usage to minimize memory allocation penalty.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Move {
     pub x: i8,
@@ -15,6 +18,7 @@ pub struct Move {
 }
 
 impl Move {
+    /// Spanws new `Move` instance.
     pub fn new () -> Self {
         Self {
             x: 4,
@@ -26,10 +30,10 @@ impl Move {
             lock: false,
         }
     }
-    /* 
-        Handles kicks
-        Returns if spin passed
-     */
+    ///  Function managing spins & kicks.
+    ///
+    ///  Behavior in accordance with the SRS kicktable.
+    ///  Returns boolean representing if the spin succeeded.
     fn apply_spin (self: &mut Self, field: &Field, p: &Piece, d: &i8) -> bool {
         let r = self.r as usize;
         let nr = (self.r as i8 + d).rem_euclid(4) as usize;
@@ -68,10 +72,10 @@ impl Move {
         self.r = r as u8;
         false
     }
-    /*
-        Changes attributes in self based on given Key
-        Returns whether the key affects the attributes 
-     */
+    
+    // Applies keystroke to self, altering attributes.
+    //
+    // Returns whether the key altered the attributes.
     pub fn apply_key(self: &mut Self, key: &Key, field: &Field, piece: &Piece, hold: &Piece) -> bool {
         if cfg!(feature = "bench") {
             let start = Instant::now();

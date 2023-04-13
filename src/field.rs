@@ -232,12 +232,12 @@ pub const PIECE_MAP: [[u32; 4]; 7] = [
         0b011_010_010,
         0b000_111_001,
         0b010_010_110
-    ], 
+    ],
     [ // L
         0b001_111_000,
-        0b110_010_010,
+        0b010_010_011,
         0b000_111_100,
-        0b010_010_011
+        0b110_010_010
     ], 
     [ // S
         0b011_110_000,
@@ -271,7 +271,6 @@ pub const PIECE_MAP: [[u32; 4]; 7] = [
     ], 
 ];
 
-/*
 #[cfg(test)]
 mod test {
     use super::*;
@@ -291,7 +290,8 @@ mod test {
     #[test] 
     fn field_apply_move_test () {
         let mut field: Field = Field::new();
-        field.m = [
+
+        field.m = [   
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
@@ -308,35 +308,30 @@ mod test {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_0_0_1,
-            0b0_0_0_0_0_0_0_1_1_1,
+            0b0_0_0_0_0_0_0_1_0_0,
+            0b0_0_0_0_1_0_0_1_1_0,
+            0b1_1_1_1_1_0_0_0_1_1,
+            0b1_1_1_1_1_1_0_1_1_1,
         ];
+
+
         let mut mov: Move = Move::new();
-        mov.x = 9;
-        mov.y = 17;
-        mov.r = 1;
-        mov.hold = true;
+        let p: Piece = Piece::T;
+        let h: Piece = Piece::T;
 
-        let p: Piece = Piece::Z;
-        let h: Piece = Piece::I;
+        mov.apply_key(&Key::Ccw, &field, &p, &h);
+        mov.apply_key(&Key::Left, &field, &p, &h);
+        mov.apply_key(&Key::SoftDrop, &field, &p, &h);
+        mov.apply_key(&Key::Ccw, &field, &p, &h);
+        mov.apply_key(&Key::HardDrop, &field, &p, &h);
 
-        //mov.apply_key(&Key::Hold, &field, &p, &h);
-        //mov.apply_key(&Key::Cw, &field, &p, &h);
-        //mov.apply_key(&Key::Left, &field, &p, &h);
-        //mov.apply_key(&Key::Left, &field, &p, &h);
-        //mov.apply_key(&Key::Left, &field, &p, &h);
-        //mov.apply_key(&Key::Left, &field, &p, &h);
-        //mov.apply_key(&Key::HardDrop, &field, &p, &h);
-
-        //field = field.apply_move(&mov, &p, &h).unwrap();
-
-        /*
-        assert_eq!(field.m[17], 0b00000_00000);
-        assert_eq!(field.m[18], 0b00001_10000);
-        assert_eq!(field.m[19], 0b00001_10000);
-         */
+        field = field.apply_move(&mov, &p, &h).unwrap();
+        println!("{:?}", mov);
+        println!("{}", field);
+        
+        //assert_eq!(field.m[17], 0b00000_00000);
+        //assert_eq!(field.m[18], 0b00001_10000);
+        //assert_eq!(field.m[19], 0b00001_10000);
     }
 
     #[test] 
@@ -371,11 +366,12 @@ mod test {
         m.apply_key(&Key::HardDrop, &field, &Piece::O, &Piece::O);
 
         field = field.apply_move(&m, &Piece::O, &Piece::O).unwrap();
+        println!("{}", field);
         field.set_props(&m, &mut props);
+        println!("{}", field);
 
-        assert_eq!(props.sum_ds, 2);
+        assert_eq!(props.ds, 2);
         assert_eq!(field.m[18], 0);
         assert_eq!(field.m[19], 0);
     }
 }
-*/

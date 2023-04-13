@@ -7,9 +7,9 @@
 //!
 //! Example:
 //! ```
-//! const state = tetron::State::new();
+//! let state: tetron::State = tetron::State::new();
 //! // .. set state
-//! const (output, mov, score) = tetron::solve(state, 2, tetron::EvaluatorMode::Norm);
+//! let out: Option<(tetron::State, tetron::Move, f32)> = tetron::solve(&state, &tetron::config::Config::new(2, tetron::EvaluatorMode::Norm));
 //! ```
 
 pub mod solve;
@@ -19,6 +19,7 @@ pub mod state;
 pub mod mov;
 pub mod evaluator;
 pub mod mac;
+pub mod config;
 
 pub use field::Field;
 pub use state::State;
@@ -51,6 +52,7 @@ macro_rules! console_log {
 
 /// Enumeration representing Tetris Piece types.
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+#[repr(u8)]
 pub enum Piece {
     J = 0,
     L = 1,
@@ -63,7 +65,8 @@ pub enum Piece {
 }
 
 /// Enumeration representing possible keystrokes.
-#[derive(PartialEq, Clone)]
+#[repr(u8)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum Key {
     Left,
     Right,

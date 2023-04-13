@@ -14,7 +14,8 @@ pub struct Move {
     pub s: i8, // -1 for none, -2 if just softdropped, should copy on next spin.
     pub tspin: bool,
     pub hold: bool,
-    pub lock: bool
+    pub lock: bool,
+    pub list: u64 // first byte represents counter
 }
 
 impl Move {
@@ -28,8 +29,74 @@ impl Move {
             tspin: false,
             hold: false,
             lock: false,
+            list: 0,
         }
     }
+    
+    pub fn hash (&self) -> u64 {
+        let mut hash: u64 = self.x.abs() as u64 + if self.x < 0 {1 << 7} else {0};
+        hash += (self.y as u64) << 8; 
+        hash += (self.r as u64) << 16; 
+        hash += (self.s.abs() as u64 + if self.s < 0 {1 << 7} else {0} ) << 24; 
+        if self.tspin   { hash += 1 << 33; }
+        if self.hold    { hash += 1 << 34; }
+        if self.lock    { hash += 1 << 35; }
+
+        hash
+    }
+   
+    pub fn list_len (&self) -> u64 {
+        self.list & 0xF
+    }
+
+    // Decodes list
+    pub fn parse_list (&self) -> Vec<Key> {
+        let mut v: Vec<Key> = vec![];
+        let len: u64 = self.list_len();
+         
+        for i in 0..len {
+            let mask: u64 = 0xF << (i * 4 + 4);
+            let val: u64 = (self.list & mask) >> (i * 4 + 4);
+            let key: Key = match val {
+                1 => Key::Left,
+                2 => Key::Right, 
+                3 => Key::DASLeft,
+                4 => Key::DASRight,
+                5 => Key::Cw,
+                6 => Key::Ccw,
+                7 => Key::_180,
+                8 => Key::HardDrop,
+                9 => Key::SoftDrop,
+                10 => Key::Hold, 
+                _ => panic!("none such key encoding") 
+            };
+            v.push(key);
+        }
+        v
+    }
+
+    // Encodes key in u4 form, appending to `list`
+    fn add_to_list (&mut self, key: &Key) {
+        let v: u64 = match key {
+            Key::Left => 1,
+            Key::Right => 2, 
+            Key::DASLeft => 3,
+            Key::DASRight => 4,
+            Key::Cw => 5,
+            Key::Ccw => 6,
+            Key::_180 => 7,
+            Key::HardDrop => 8,
+            Key::SoftDrop => 9,
+            Key::Hold => 10 
+        };
+        let index: u64 = self.list_len();
+        if index >= 15 {
+            panic!("move list out of space");
+        }
+        self.list += v << (index * 4 + 4); 
+        self.list += 1; // Increment counter
+    }
+
     ///  Function managing spins & kicks.
     ///
     ///  Behavior in accordance with the SRS kicktable.
@@ -99,10 +166,13 @@ impl Move {
                 }
             }, 
             Key::Cw | Key::Ccw | Key::_180 => {
-                if self.s == -2 {
+                if self.s == -2 {           // If just softdropped, save spin (read comment on declaration)
                     self.s = self.r as i8;
+                } else if self.s >= 0 {      // If already spun after softdrop (i.e, redundant spinning) 
+                    return false;
                 }
-                    
+
+                
                 let d: i8 = if *key == Key::Cw {1} else if *key == Key::Ccw {-1} else {2};
                 
                 if !self.apply_spin(field, p, &d) {
@@ -116,6 +186,11 @@ impl Move {
                 while self.apply_key(&Key::Right, field, piece, hold) {}
             }, 
             Key::SoftDrop => {
+                if self.s != -1 {   // Only allow softdrop once, `this.s` can tell us this as it is
+                                    // set to -2 upon softdrop. read comment on declaration
+                    return false;
+                }
+
                 while !field.check_conflict(&*self, p) {
                     self.y += 1;
                 }
@@ -136,6 +211,7 @@ impl Move {
                 self.hold = true
             }
         }; 
+        self.add_to_list(key);
         true
     }
 }

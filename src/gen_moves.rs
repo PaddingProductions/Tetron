@@ -15,15 +15,7 @@ use crate::BENCH_DATA;
 /// Append only valid and unique moves into the BFS queue. 
 /// Uniqueness of Field is guarenteed via a Hashset<T>. This, in turn, guarentees uniqueness in Moves.
 pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
-    // Benching
-    if cfg!(feature = "bench") {
-        let start = Instant::now();
-        defer!(unsafe { 
-            BENCH_DATA.gen_moves.1 += 1;
-            let dt = start.elapsed().as_micros();
-            BENCH_DATA.gen_moves.0 = if BENCH_DATA.gen_moves.0 == 0 {dt} else {(BENCH_DATA.gen_moves.0 + dt) / 2};
-        });
-    }
+    let start = Instant::now();
 
 
     // Check if there is even a piece to expand on.
@@ -34,7 +26,7 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
     let hold: &Piece = if state.hold == Piece::None { &state.pieces[1] } else { &state.hold };
 
     let mut field_hash: HashMap<Field, Move> = HashMap::new();
-    let mut move_hash: HashSet<Move> = HashSet::new();
+    let mut move_hash: HashSet<u64> = HashSet::new();
     let mut q: VecDeque<Move> = VecDeque::new();
     q.reserve(40);
 
@@ -62,7 +54,7 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
             }
 
             // Check Move hash
-            if move_hash.get(&m).is_some() {
+            if move_hash.get(&m.hash()).is_some() {
                 continue;
             }
             // If harddropped, check field hash.
@@ -73,9 +65,19 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
                     }
                 }
             } else {
-                move_hash.insert(m.clone());
-                q.push_back(m);
+                move_hash.insert(m.hash());
+                if m.list_len() < 10 {
+                    q.push_back(m);
+                }
             }
+        }
+    }
+    #[cfg(feature = "bench")]
+    {
+        unsafe { 
+            BENCH_DATA.gen_moves.1 += 1;
+            let dt = start.elapsed().as_micros();
+            BENCH_DATA.gen_moves.0 = if BENCH_DATA.gen_moves.0 == 0 {dt} else {(BENCH_DATA.gen_moves.0 + dt) / 2};
         }
     }
     field_hash

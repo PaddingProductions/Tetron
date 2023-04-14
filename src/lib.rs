@@ -28,9 +28,6 @@ pub use gen_moves::gen_moves;
 pub use solve::solve;
 pub use evaluator::{evaluate, EvaluatorMode};
 
-#[macro_use(defer)]
-extern crate scopeguard;
-
 // WASM CONSOLE
 // use wasm_bindgen::prelude::*;
 // use web_sys::console;

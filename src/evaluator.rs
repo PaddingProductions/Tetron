@@ -1,7 +1,5 @@
 //! Module isolating heuristics function.
 
-use crate::BENCH_DATA;
-use std::time::Instant;
 
 use super::{State, Field, Props, Piece};
 use crate::mac::*;
@@ -185,15 +183,11 @@ fn tspin_check (state: &State, x: usize, y: usize) -> Option<(u8, u8, usize, usi
 ///
 /// <TODO>: Heuristic list
 pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
-    
-    if cfg!(feature = "bench") {
-        let start = Instant::now();
-        defer!(unsafe {
-            BENCH_DATA.evaluator.1 += 1;
-            let dt = start.elapsed().as_micros();
-            BENCH_DATA.evaluator.0 = if BENCH_DATA.evaluator.0 == 0 {dt} else {(BENCH_DATA.evaluator.0 + dt) / 2};
-        });
-    }
+    let _bencher: Option<crate::Bencher> = if cfg!(feature = "bench") {
+        unsafe {
+            Some( crate::Bencher::new( &mut crate::BENCH_DATA.evaluator ) )
+        }
+    } else {None};
 
     let f: &Field = &state.field;
     let p: &Props = &state.props;

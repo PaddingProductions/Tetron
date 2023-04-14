@@ -113,6 +113,27 @@ impl Props {
     }
 }
 
+pub struct Bencher <'a> {
+    start: std::time::Instant,
+    data: &'a mut(u128, u128)
+}
+
+impl<'a> Bencher<'a> {
+    fn new (data: &'a mut(u128, u128)) -> Self {
+        Self { 
+            start: std::time::Instant::now(),
+            data: data
+        }
+    }
+}
+impl<'a> Drop for Bencher<'a> {
+    fn drop (&mut self) {
+        let dt = self.start.elapsed().as_micros();
+        self.data.0 = (self.data.0 * self.data.1 + dt) / (self.data.1+1);
+        self.data.1 += 1;
+    }
+}
+
 struct BenchData {
     solves: u128,
     evaluator: (u128, u128),

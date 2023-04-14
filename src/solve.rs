@@ -19,6 +19,12 @@ static mut EXPANSIONS: u32 = 0;
 /// Returns the selected Move, the resultant State, and the calculated score.
 /// Bot behavior configurable via source code. 
 pub fn solve (state: &State, configs: &Config) -> Option<(State, Move, f32)> {
+    // Benching
+    let _bencher: Option<crate::Bencher> = if cfg!(feature = "bench") {
+        unsafe {
+            Some( crate::Bencher::new( &mut crate::BENCH_DATA.solve_d0 ) )
+        }
+    } else {None};   
 
     let moves: HashMap<Field, Move> = gen_moves(state);
     let mut queue: Vec<(State, Move, f32)> = vec![];

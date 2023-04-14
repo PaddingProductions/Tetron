@@ -1,6 +1,3 @@
-use std::time::Instant;
-
-use crate::BENCH_DATA;
 use super::{Key, Piece, Field};
 
 /// Minimalist structure containing properties of a piece placement.
@@ -144,15 +141,13 @@ impl Move {
     //
     // Returns whether the key altered the attributes.
     pub fn apply_key(self: &mut Self, key: &Key, field: &Field, piece: &Piece, hold: &Piece) -> bool {
-        if cfg!(feature = "bench") {
-            let start = Instant::now();
-            defer!(unsafe {
-                BENCH_DATA.apply_key.1 += 1;
-                let dt = start.elapsed().as_micros();
-                BENCH_DATA.apply_key.0 = if BENCH_DATA.apply_key.0 == 0 {dt} else {(BENCH_DATA.apply_key.0 + dt) / 2};
-            });
-        }
-        
+        let _bencher: Option<crate::Bencher> = if cfg!(feature = "bench") {
+            unsafe {
+                Some( crate::Bencher::new( &mut crate::BENCH_DATA.apply_key ) )
+            }
+        } else {None};
+
+ 
         let p: &Piece = if self.hold {hold} else {piece};
 
         match key {

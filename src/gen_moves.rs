@@ -1,10 +1,8 @@
 //! Module isolating `gen_moves` function
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::time::Instant;
 
 use super::{Field, Move, State, Key, Piece};
-use crate::BENCH_DATA;
 
 
  
@@ -15,8 +13,11 @@ use crate::BENCH_DATA;
 /// Append only valid and unique moves into the BFS queue. 
 /// Uniqueness of Field is guarenteed via a Hashset<T>. This, in turn, guarentees uniqueness in Moves.
 pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
-    let start = Instant::now();
-
+    let _bencher: Option<crate::Bencher> = if cfg!(feature = "bench") {
+        unsafe {
+            Some( crate::Bencher::new( &mut crate::BENCH_DATA.gen_moves ) )
+        }
+    } else {None};
 
     // Check if there is even a piece to expand on.
     if state.pieces.is_empty() {
@@ -33,7 +34,7 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
     // Base cases for BFS
     let starting_move: Move = Move::new();
     let mut starting_move_hold = starting_move.clone();
-    starting_move_hold.hold = true;
+    starting_move_hold.apply_key(&Key::Hold, &state.field, piece, hold);
 
 
     // Check if field does not allow base moves (game over by top-out)
@@ -72,14 +73,7 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
             }
         }
     }
-    #[cfg(feature = "bench")]
-    {
-        unsafe { 
-            BENCH_DATA.gen_moves.1 += 1;
-            let dt = start.elapsed().as_micros();
-            BENCH_DATA.gen_moves.0 = if BENCH_DATA.gen_moves.0 == 0 {dt} else {(BENCH_DATA.gen_moves.0 + dt) / 2};
-        }
-    }
+
     field_hash
 } 
 

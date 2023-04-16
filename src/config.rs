@@ -1,5 +1,7 @@
 use crate::evaluator::EvaluatorMode;
 
+
+
 #[derive(Clone)]
 pub struct Config {
     pub depth: u8,

@@ -19,6 +19,7 @@ static mut EXPANSIONS: u32 = 0;
 /// Returns the selected Move, the resultant State, and the calculated score.
 /// Bot behavior configurable via source code. 
 pub fn solve (state: &State, configs: &Config) -> Option<(State, Move, f32)> {
+    println!("NEW VERSION!!!");
     // Benching
     let _bencher: Option<crate::Bencher> = if cfg!(feature = "bench") {
         unsafe {

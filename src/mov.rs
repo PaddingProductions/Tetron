@@ -73,7 +73,7 @@ impl Move {
     }
 
     // Encodes key in u4 form, appending to `list`
-    fn add_to_list (&mut self, key: &Key) {
+    pub fn add_to_list (&mut self, key: &Key) {
         let v: u64 = match key {
             Key::Left => 1,
             Key::Right => 2, 

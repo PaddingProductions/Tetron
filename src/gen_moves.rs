@@ -1,6 +1,8 @@
 //! Module isolating `gen_moves` function
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{VecDeque};
+
+use ahash::{AHashMap, AHashSet};
 
 use super::{Field, Move, State, Key, Piece};
 
@@ -12,7 +14,7 @@ use super::{Field, Move, State, Key, Piece};
 /// Starting with the base move, expand it by adding another key to the move.
 /// Append only valid and unique moves into the BFS queue. 
 /// Uniqueness of Field is guarenteed via a Hashset<T>. This, in turn, guarentees uniqueness in Moves.
-pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
+pub fn gen_moves(state: &State) -> AHashMap<Field, Move> {
     let _bencher: Option<crate::Bencher> = if cfg!(feature = "bench") {
         unsafe {
             Some( crate::Bencher::new( &mut crate::BENCH_DATA.gen_moves ) )
@@ -21,33 +23,58 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
 
     // Check if there is even a piece to expand on.
     if state.pieces.is_empty() {
-        return HashMap::new();
+        return AHashMap::new();
     }
     let piece: &Piece = &state.pieces[0];
-    let hold: &Piece = if state.hold == Piece::None { &state.pieces[1] } else { &state.hold };
+    let hold : &Piece = if state.hold == Piece::None { &state.pieces[1] } else { &state.hold };
 
-    let mut field_hash: HashMap<Field, Move> = HashMap::new();
-    let mut move_hash: HashSet<u64> = HashSet::new();
+    let mut field_hash: AHashMap<Field, Move> = AHashMap::new();
+    let mut move_hash: AHashSet<u64> = AHashSet::new();
     let mut q: VecDeque<Move> = VecDeque::new();
-    q.reserve(40);
+    q.reserve(64);
 
     // Base cases for BFS
-    let starting_move: Move = Move::new();
-    let mut starting_move_hold = starting_move.clone();
-    starting_move_hold.apply_key(&Key::Hold, &state.field, piece, hold);
+    {
+        for r in [Key::Cw, Key::Ccw, Key::_180] {
+            for x in 0..10 {
+                let mut m = Move {
+                    hold: false,
+                    x,
+                    y: 1,
+                    r: 0,
+                    s: -1,
+                    tspin: false,
+                    lock: false,
+                    list: 0,
+                }; 
+                for _ in 0..(4-x) {
+                    m.add_to_list(&Key::Left);
+                }
+                for _ in 0..(x-4) {
+                    m.add_to_list(&Key::Right);
+                }
+                let mut h = m.clone();
+                h.hold = true;
 
+                m.apply_key(&r, &state.field, piece, hold);
+                m.apply_key(&Key::SoftDrop, &state.field, piece, hold);
 
-    // Check if field does not allow base moves (game over by top-out)
-    if !state.field.check_conflict(&starting_move, piece) {
-        q.push_back(starting_move);
+                h.apply_key(&r, &state.field, piece, hold);
+                h.apply_key(&Key::SoftDrop, &state.field, piece, hold);
+
+                if !state.field.check_conflict(&m, piece) {
+                    move_hash.insert(m.hash());
+                    q.push_back(m); 
+                }
+                if !state.field.check_conflict(&h, piece) {
+                    move_hash.insert(h.hash());
+                    q.push_back(h); 
+                }
+            }
+        }
     }
-    if !state.field.check_conflict(&starting_move_hold, piece) {
-        q.push_back(starting_move_hold);
-    }
 
-    while !q.is_empty() {
-        let mov: Move = q.pop_front().unwrap();
-
+    while let Some(mov) = q.pop_front() {
         for key in [Key::Left, Key::Right, Key::Cw, Key::Ccw, Key::_180, Key::SoftDrop, Key::HardDrop] {
             let mut m = mov.clone();
             if !m.apply_key(&key, &state.field, piece, hold) {
@@ -73,7 +100,6 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
             }
         }
     }
-
     field_hash
 } 
 
@@ -85,35 +111,36 @@ mod tests {
     #[test]
     fn gen_moves_test () {
         let mut state: State = State::new();
-        state.pieces.push_back(Piece::S);
-        state.pieces.push_back(Piece::J);
-        state.pieces.push_back(Piece::S);
-        state.pieces.push_back(Piece::J);
+//        state.pieces.push_back(Piece::S);
+        state.pieces.push_back(Piece::T);
         state.pieces.push_back(Piece::I);
-        state.hold = Piece::I;
+        state.pieces.push_back(Piece::J);
+        state.pieces.push_back(Piece::L);
+        state.hold = Piece::Z;
         
         state.field.m = [   
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_1_1_1_0,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b1_0_1_1_0_0_1_1_1_0,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_1_0_0_0,
+            0b0_0_0_0_0_1_1_0_0_1,
+            0b1_1_1_1_1_1_0_0_0_1,
+            0b1_1_1_1_1_1_1_0_1_1,
         ];
+
     
         let map = gen_moves(&state);
         for (field, _) in map {

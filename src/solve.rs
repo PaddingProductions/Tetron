@@ -3,7 +3,7 @@
 use super::{State, Field, Move, gen_moves, evaluate};
 use super::config::Config;
 
-use std::collections::HashMap;
+use ahash::AHashMap;
 use rayon::prelude::*;
 
 const INHERITANCE_F: f32 = 0.0;
@@ -27,7 +27,7 @@ pub fn solve (state: &State, configs: &Config) -> Option<(State, Move, f32)> {
         }
     } else {None};   
 
-    let moves: HashMap<Field, Move> = gen_moves(state);
+    let moves: AHashMap<Field, Move> = gen_moves(state);
     let mut queue: Vec<(State, Move, f32)> = vec![];
     queue.reserve(moves.len());
 
@@ -68,8 +68,8 @@ pub fn solve (state: &State, configs: &Config) -> Option<(State, Move, f32)> {
     
     // Expand & Sort
     let next_configs = configs.next();
-    queue.par_iter_mut()
-    //queue.iter_mut()
+    //queue.par_iter_mut()
+    queue.iter_mut()
         .for_each(|(nstate, _, score)| 
             if let Some(res) = solve(&nstate, &next_configs) {
                 let nscore: f32 = *score * INHERITANCE_F + res.2 * (1.0 - INHERITANCE_F);
@@ -103,11 +103,10 @@ mod tests {
 
         let mut state: State = State::new();
         state.pieces.push_back(Piece::T);
-        state.pieces.push_back(Piece::O);
+        state.pieces.push_back(Piece::S);
         state.pieces.push_back(Piece::S);
         state.pieces.push_back(Piece::Z);
         state.pieces.push_back(Piece::S);
-        state.hold = Piece::J;
 
         state.field.m = [   
             0b0_0_0_0_0_0_0_0_0_0,
@@ -126,9 +125,9 @@ mod tests {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_1_0_0,
-            0b0_0_0_0_1_0_0_1_1_0,
-            0b1_1_1_1_1_0_0_0_1_1,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_1_0_0_0_0_0,
+            0b1_1_1_1_1_0_0_0_0_0,
             0b1_1_1_1_1_1_0_1_1_1,
         ];
 

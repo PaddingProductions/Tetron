@@ -68,19 +68,23 @@ pub fn solve (state: &State, configs: &Config) -> Option<(State, Move, f32)> {
     
     // Expand & Sort
     let next_configs = configs.next();
-    queue.par_iter_mut()
-    //queue.iter_mut()
-        .for_each(|(nstate, _, score)| 
+    let func = |(nstate, _, score): &mut (State, Move, f32)| 
             if let Some(res) = solve(&nstate, &next_configs) {
                 let nscore: f32 = *score * INHERITANCE_F + res.2 * (1.0 - INHERITANCE_F);
                 *score = nscore;
             } else {
                 *score = f32::NEG_INFINITY;
-            }
-        );
+            };
+
+    if configs.depth == 2 {
+        queue.par_iter_mut()
+            .for_each(func);
+    } else {
+         queue.iter_mut()
+            .for_each(func);
+    }
     queue.sort_by(|a, b| a.2.total_cmp(&b.2));
-    
-    //println!("expanded: {} @ depth={}", queue.len(), depth);
+
     unsafe {
         EXPANSIONS += queue.len() as u32;
         if configs.depth == 3 {

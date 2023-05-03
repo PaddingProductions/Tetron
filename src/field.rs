@@ -85,7 +85,7 @@ impl Field {
     /// Pastes a given piece onto a clone of self according to given move, returning said clone.
     pub fn apply_move (self: &Self, m: &Move, piece: &Piece, hold: &Piece) -> Result<Field, ()> {
         let mut field = self.clone();
-        let p: &Piece = if m.hold {hold} else {piece};
+        let p: &Piece = if m.hold() {hold} else {piece};
         let map: &u32 = &PIECE_MAP[*p as usize][m.r as usize];
         let n: i8 = if *p == Piece::I {5} else {3};
         let c_x: i8 = m.x - n/2;
@@ -153,7 +153,7 @@ impl Field {
             }
         }
         // Calc attacks 
-        let atk: u8 = if clears < 4 && !mov.tspin {
+        let atk: u8 = if clears < 4 && !mov.tspin() {
             match clears {
                 0 => 0,
                 1 => [0, 0, 1, 1, 1, 1, 2, 2, 2, 2][props.combo as usize],
@@ -162,7 +162,7 @@ impl Field {
                 _ => 0
             }
         } else if clears > 0 {
-            let t = if mov.tspin {clears} else {0};
+            let t = if mov.tspin() {clears} else {0};
             B2B_TABLE[props.b2b as usize][t][props.combo as usize] as u8
         } else {0};
 
@@ -179,7 +179,7 @@ impl Field {
         props.combo = if clears > 0 {props.combo + 1}  else {0};
         
         // b2b
-        props.b2b = if (mov.tspin && clears > 0) || clears == 4 {props.b2b + 1} else {0};
+        props.b2b = if (mov.tspin() && clears > 0) || clears == 4 {props.b2b + 1} else {0};
     }
 }
 

@@ -48,7 +48,7 @@ impl State {
         // generate children's piece queue and hold piece.
         let mut pieces: VecDeque<Piece> = self.pieces.clone();
         let mut hold: Piece = self.hold;
-        if mov.hold {
+        if mov.hold() {
             hold = pieces.pop_front().unwrap();
             if self.hold == Piece::None {
                 pieces.pop_front();

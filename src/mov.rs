@@ -9,9 +9,7 @@ pub struct Move {
     pub y: i8,
     pub r: u8,
     pub s: i8, // -1 for none, -2 if just softdropped, should copy on next spin.
-    pub tspin: bool,
-    pub hold: bool,
-    pub lock: bool,
+    pub bits: u8, // 0x00000<tspin><lock><hold>
     pub list: u64 // first byte represents counter
 }
 
@@ -23,22 +21,25 @@ impl Move {
             y: 1,
             r: 0,
             s: -1, 
-            tspin: false,
-            hold: false,
-            lock: false,
+            bits: 0,
             list: 0,
         }
     }
     
+    pub fn hold (&self) -> bool  { self.bits & 1 > 0 } 
+    pub fn lock (&self) -> bool  { self.bits & (1 << 1) > 0 } 
+    pub fn tspin (&self) -> bool { self.bits & (1 << 2) > 0 } 
+
+    pub fn set_hold  (&mut self, b: bool) { if b { self.bits |= 1 }      else { self.bits &= !1 } } 
+    pub fn set_lock  (&mut self, b: bool) { if b { self.bits |= 1 << 1 } else { self.bits &= !(1<<1) } } 
+    pub fn set_tspin (&mut self, b: bool) { if b { self.bits |= 1 << 2 } else { self.bits &= !(1<<2) } } 
+
     pub fn hash (&self) -> u64 {
         let mut hash: u64 = self.x.abs() as u64 + if self.x < 0 {1 << 7} else {0};
         hash += (self.y as u64) << 8; 
         hash += (self.r as u64) << 16; 
         hash += (self.s.abs() as u64 + if self.s < 0 {1 << 7} else {0} ) << 24; 
-        if self.tspin   { hash += 1 << 33; }
-        if self.hold    { hash += 1 << 34; }
-        if self.lock    { hash += 1 << 35; }
-
+        hash += (self.bits as u64) << 32;
         hash
     }
    
@@ -126,7 +127,7 @@ impl Move {
                         .map(|(x, y)| 
                             if x < 0 || y < 0 || x >= 10 || y >= 20 || field.m[y as usize] & (1 << x) > 0 {1 as u8} else {0 as u8}
                         ).iter().sum::<u8>();
-                    self.tspin = cnt >= 3;
+                    self.set_tspin(cnt >= 3);
                 }
                 return true
             }
@@ -148,7 +149,7 @@ impl Move {
         } else {None};
 
  
-        let p: &Piece = if self.hold {hold} else {piece};
+        let p: &Piece = if self.hold() {hold} else {piece};
 
         match key {
             Key::Left | Key::Right => {
@@ -197,13 +198,13 @@ impl Move {
                     self.y += 1;
                 }
                 self.y -= 1;
-                self.lock = true;
+                self.set_lock(true);
             }
             Key::Hold => {
-                if self.hold {
+                if self.hold() {
                     return false;
                 }
-                self.hold = true
+                self.set_hold(true);
             }
         }; 
         self.add_to_list(key);
@@ -228,6 +229,29 @@ const KICK_TABLE_I: [[(i8, i8); 5]; 4] = [
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn move_bits_test () {
+        let mut mov: Move = Move::new();
+        assert!(!mov.tspin());
+        mov.set_tspin(true);
+        assert!(mov.tspin());
+        
+        assert!(!mov.hold());
+        mov.set_hold(true);
+        assert!(mov.hold());
+
+        assert!(!mov.lock());
+        mov.set_lock(true);
+        assert!(mov.lock());
+
+        mov.set_tspin(false);
+        assert!(!mov.tspin());
+
+        let mut m2 = mov.clone();
+        m2.set_hold(true);
+        assert_ne!(mov.hash(), m2.hash());
+    }
 
     #[test] 
     fn move_apply_key_test () {

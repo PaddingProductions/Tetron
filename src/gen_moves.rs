@@ -53,13 +53,12 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
             if !m.apply_key(&key, &state.field, piece, hold) {
                 continue;
             }
-
             // Check Move hash
             if move_hash.get(&m.hash()).is_some() {
                 continue;
             }
             // If harddropped, check field hash.
-            if m.lock {
+            if m.lock() {
                 if let Ok(field) = state.field.apply_move(&m, piece, hold) {
                     if !field_hash.contains_key(&field) {
                         field_hash.insert(field, m);
@@ -85,36 +84,35 @@ mod tests {
     #[test]
     fn gen_moves_test () {
         let mut state: State = State::new();
-        state.pieces.push_back(Piece::S);
-        state.pieces.push_back(Piece::J);
-        state.pieces.push_back(Piece::S);
-        state.pieces.push_back(Piece::J);
+        //state.pieces.push_back(Piece::L);
+        //state.pieces.push_back(Piece::S);
+        state.pieces.push_back(Piece::T);
         state.pieces.push_back(Piece::I);
-        state.hold = Piece::I;
-        
+        state.pieces.push_back(Piece::J);
+        state.hold = Piece::Z;
+
         state.field.m = [   
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_1_1_1_0,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b0_0_0_0_0_0_1_1_1_1,
-            0b1_0_1_1_0_0_1_1_1_0,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
-            0b1_1_1_1_1_0_1_1_1_1,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_1_0_0_0,
+            0b0_0_0_0_0_1_1_0_0_1,
+            0b1_1_1_1_1_1_0_0_0_1,
+            0b1_1_1_1_1_1_1_0_1_1,
         ];
-    
         let map = gen_moves(&state);
         for (field, _) in map {
             println!("{}", field);

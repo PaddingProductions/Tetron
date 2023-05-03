@@ -75,6 +75,7 @@ pub enum Key {
     HardDrop,
     SoftDrop,
     Hold,
+    None,
 }
 
 /// Minimalist structure containing properties of a state.

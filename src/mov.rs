@@ -84,7 +84,8 @@ impl Move {
             Key::_180 => 7,
             Key::HardDrop => 8,
             Key::SoftDrop => 9,
-            Key::Hold => 10 
+            Key::Hold => 10,
+            _ => panic!("unknown key")
         };
         let index: u64 = self.list_len();
         if index >= 15 {
@@ -153,6 +154,7 @@ impl Move {
         match key {
             Key::Left | Key::Right => {
                 let d: i8 = if *key == Key::Left {-1} else {1};
+
                 self.x += d;
 
                 if field.check_conflict(&*self, p) {
@@ -205,6 +207,7 @@ impl Move {
                 }
                 self.hold = true
             }
+            _ => panic!("Unknown Key")
         }; 
         self.add_to_list(key);
         true

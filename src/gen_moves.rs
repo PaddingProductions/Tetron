@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use super::{Field, Move, State, Key, Piece};
-
+use crate::field::ConflictCache;
 
  
 /// Generates all valid Moves that can be applied to a given state. 
@@ -31,21 +31,22 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
     let mut q: VecDeque<Move> = VecDeque::new();
     q.reserve(40);
 
-    // Precompute 
-    let conflict_cache = (state.field.precompute_conflict(piece), state.field.precompute_conflict(hold));
+    let mut cache: (ConflictCache, ConflictCache) = ([[0; 20]; 4], [[0; 20]; 4]);
 
     // Base cases for BFS
-    let starting_move: Move = Move::new();
-    let mut starting_move_hold = starting_move.clone();
-    starting_move_hold.apply_key(&Key::Hold, conflict_cache, &state.field, piece, hold);
-
-
-    // Check if field does not allow base moves (game over by top-out)
-    if !Field::check_conflict(conflict_cache.0, &starting_move) {
-        q.push_back(starting_move);
-    }
-    if !Field::check_conflict(conflict_cache.1, &starting_move_hold) {
-        q.push_back(starting_move_hold);
+    {
+        let m: Move = Move::new();
+        if !state.field.check_conflict(&mut cache.0, &m, piece) {
+            q.push_back(m);
+        }
+    } 
+    // Hold base case
+    if *hold != Piece::None {
+        let mut m = Move::new();
+        m.apply_key(&Key::Hold, &mut cache, &state.field, piece, hold);
+        if !state.field.check_conflict(&mut cache.1, &m, piece) {
+            q.push_back(m);
+        }
     }
 
     while !q.is_empty() {
@@ -53,7 +54,7 @@ pub fn gen_moves(state: &State) -> HashMap<Field, Move> {
 
         for key in [Key::Left, Key::Right, Key::Cw, Key::Ccw, Key::_180, Key::SoftDrop, Key::HardDrop] {
             let mut m = mov.clone();
-            if !m.apply_key(&key, conflict_cache, &state.field, piece, hold) {
+            if !m.apply_key(&key, &mut cache, &state.field, piece, hold) {
                 continue;
             }
 

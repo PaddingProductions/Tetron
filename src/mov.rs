@@ -1,5 +1,5 @@
 use super::{Key, Piece, Field};
-use crate::field::ConflictMap;
+use crate::field::ConflictCache;
 
 /// Minimalist structure containing properties of a piece placement.
 ///
@@ -99,7 +99,7 @@ impl Move {
     ///
     ///  Behavior in accordance with the SRS kicktable.
     ///  Returns boolean representing if the spin succeeded.
-    fn apply_spin (self: &mut Self, cache: ConflictMap, field: &Field, p: &Piece, d: &i8) -> bool {
+    fn apply_spin (self: &mut Self, cache: &mut ConflictCache, field: &Field, p: &Piece, d: &i8) -> bool {
         let r = self.r as usize;
         let nr = (self.r as i8 + d).rem_euclid(4) as usize;
         let table_ref: &[[(i8, i8); 5]; 4] = match *p {
@@ -117,7 +117,7 @@ impl Move {
         for i in 0..5 {
             self.x += kicks[i].0;
             self.y -= kicks[i].1;
-            if !Field::check_conflict(cache, &*self) {
+            if !field.check_conflict(cache, &*self, p) {
                 // Check t-spin
                 if *p == Piece::T {
                     // Three-corner rule
@@ -141,7 +141,7 @@ impl Move {
     // Applies keystroke to self, altering attributes.
     //
     // Returns whether the key altered the attributes.
-    pub fn apply_key(self: &mut Self, key: &Key, conflict_map: (ConflictMap, ConflictMap), field: &Field, piece: &Piece, hold: &Piece) -> bool {
+    pub fn apply_key(self: &mut Self, key: &Key, conflict_map: &mut (ConflictCache, ConflictCache), field: &Field, piece: &Piece, hold: &Piece) -> bool {
         let _bencher: Option<crate::Bencher> = if cfg!(feature = "bench") {
             unsafe {
                 Some( crate::Bencher::new( &mut crate::BENCH_DATA.apply_key ) )
@@ -150,14 +150,14 @@ impl Move {
 
  
         let p: &Piece = if self.hold {hold} else {piece};
-        let cache = if self.hold {conflict_map.1} else {conflict_map.0};
+        let mut cache = if self.hold {conflict_map.1} else {conflict_map.0};
 
         match key {
             Key::Left | Key::Right => {
                 let d: i8 = if *key == Key::Left {-1} else {1};
                 self.x += d;
 
-                if Field::check_conflict(cache, self) {
+                if field.check_conflict(&mut cache, self, p) {
                     self.x -= d;
                     return false;
                 }
@@ -172,7 +172,7 @@ impl Move {
                 
                 let d: i8 = if *key == Key::Cw {1} else if *key == Key::Ccw {-1} else {2};
                 
-                if !self.apply_spin(cache, field, p, &d) {
+                if !self.apply_spin(&mut cache, field, p, &d) {
                     return false;
                 }
             }, 
@@ -188,14 +188,14 @@ impl Move {
                     return false;
                 }
 
-                while !Field::check_conflict(cache, &*self) {
+                while !field.check_conflict(&mut cache, &*self, p) {
                     self.y += 1;
                 }
                 self.y -= 1;
                 self.s = -2; // Read comment on declaration. Spin tracking.
             },
             Key::HardDrop => {
-                while !Field::check_conflict(cache, &*self) {
+                while !field.check_conflict(&mut cache, &*self, p) {
                     self.y += 1;
                 }
                 self.y -= 1;
@@ -250,9 +250,9 @@ mod tests {
         let field: Field = Field::new();
         let mut mov: Move = Move::new();
         let p: Piece = Piece::L;
-        let cache = field.precompute_conflict(&p);
+        let cache: ConflictCache = [[0; 20]; 4]; 
 
-        mov.apply_key(&Key::HardDrop, (cache, cache), &field, &p, &p);
+        mov.apply_key(&Key::HardDrop, &mut (cache, cache), &field, &p, &p);
 
         assert_eq!(mov.x, 4);
         assert_eq!(mov.y, 19);

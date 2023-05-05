@@ -10,7 +10,7 @@ use std::fmt;
 pub struct Field {
     pub m: [u16; 20],
 }
-pub type ConflictMap = [[u16; 20]; 4];
+pub type ConflictCache = [[u32; 20]; 4];
 impl fmt::Display for Field {
     fn fmt (&self, f: &mut fmt::Formatter) -> fmt::Result { 
         for y in 0..20 {
@@ -37,63 +37,65 @@ impl Field {
         }
     }
     
-    pub fn precompute_conflict (&self, piece: &Piece) -> ConflictMap {
-        let mut map = [[0; 20]; 4];
-        let p = piece;
-        let n: usize = if *p == Piece::I { 5 } else { 3 };
-        let n_half: usize = if *p == Piece::I { 2 } else { 1 };
-        let mask = (1 << n) - 1;
 
-        for r in 0..4 {
-            let p_map = PIECE_MAP[*p as usize][r];
-
-            for row in 0..n {
-                let shift: u8 = (n * (n - 1 - row)) as u8;
-                let bitseg: u16 = reverse_bin( (( p_map & (mask << shift) ) >> shift) as u16 , n as u8 );
-                if bitseg == 0 {
-                    continue
-                }
-                for y in 0..20 {
-                    for x in 0..10 {
-                        let c_x: i8 = x as i8 - n_half as i8;
-                        let r_y = (y + row) as i32 - n_half as i32; 
-                        
-                        // If out of bounds vertically 
-                        if r_y < 0 || r_y >= 20 { 
-                            map[r][y as usize] |= 1 << x; 
-                            continue
-                        }
-
-                        // If out of bounds horizontally 
-                        // Left
-                        if c_x < 0 && bitseg & ((1 << (-c_x)) - 1) > 0  {
-                            map[r][y as usize] |= 1 << x; 
-                            continue
-                        }
-                        let bitseg = if c_x > 0 { bitseg << c_x } else { bitseg >> -c_x };
-
-                        // Right
-                        if  bitseg > (1 << 10) -1 {
-                            map[r][y as usize] |= 1 << x;
-                            continue
-                        }
-
-                        // If conflict
-                        if bitseg & self.m[r_y as usize] > 0 {  
-                            map[r][y as usize] |= 1 << x;
-                        }
-                    }
-                }
-            }
-        }
-        map
-    }
-    pub fn check_conflict(cache: ConflictMap, m: &Move) -> bool {
+    pub fn check_conflict(&self, cache: &mut ConflictCache, m: &Move, p: &Piece) -> bool {
         if m.y < 0 || m.y >= 20 || m.x < 0 || m.x >= 10 {
             return true;
         }
+        if cache[m.r as usize][m.y as usize] & 1 << (10 + m.x as usize) == 0 {
+            cache[m.r as usize][m.y as usize] |= 1 << (10 + m.x as usize);
+            if self.compute_conflict(m, p) {
+                cache[m.r as usize][m.y as usize] |= 1 << (m.x as usize);
+            }
+        } 
         cache[m.r as usize][m.y as usize] & 1 << (m.x as usize) > 0
     }
+
+    fn compute_conflict (&self, m: &Move, p: &Piece) -> bool {
+        let map: &u32 = &PIECE_MAP[*p as usize][m.r as usize];
+        let n: i8 = if *p == Piece::I {5} else {3};
+        let c_x: i8 = m.x - n/2;
+        let c_y: i8 = m.y - n/2;
+        let mask = (1 << n) - 1;
+        
+        //dev_log!("checking conflict for move:{:?}, piece: {:?}", m, p);
+        for y in 0..n {
+            // The bits representing a single row of the piece map
+            let shift: u8 = (n * (n - 1 - y)) as u8;
+            let bitseg: u16 = reverse_bin( (( map & (mask << shift) ) >> shift) as u16 , n as u8 );
+            //dev_log!("c_x: {c_x}, map: {:#011b}, bitseg: {:#07b}", PIECE_MAP[*p as usize][m.r as usize], bitseg);
+
+            // If empty row on piece map
+            if bitseg == 0 {
+                continue;
+            }
+            // If out of board on upper edge
+            if  c_y + y < 0 {
+                //continue;
+                return true;
+            }
+            // If out of board on bottom edge
+            if c_y + y >= 20 {
+                return true
+            }
+            // If out of board on left edge
+            if c_x < 0 && bitseg & ((1 << (-c_x)) - 1) > 0  {
+                return true
+            }
+            // Shift according to c_x
+            let bitseg = if c_x > 0 { bitseg << c_x } else { bitseg >> -c_x };
+
+            // If out of board on right edge
+            if  bitseg > (1 << 10) -1 {
+                return true
+            }
+
+            if self.m[(c_y + y) as usize] & bitseg > 0 {
+                return true
+            }
+        };
+        false
+    }   
 
     /// Pastes a given piece onto a clone of self according to given move, returning said clone.
     pub fn apply_move (self: &Self, m: &Move, piece: &Piece, hold: &Piece) -> Result<Field, ()> {
@@ -294,11 +296,11 @@ mod test {
         let field: Field = Field::new();
         let mut mov: Move = Move::new();
         let p: Piece = Piece::L;
-        let map = field.precompute_conflict(&p);
+        let mut cache: ConflictCache = [[0; 20]; 4]; 
 
         mov.y = 19;
         mov.x = 0;
-        assert_eq!(Field::check_conflict(map, &mov), true);
+        assert_eq!(field.check_conflict(&mut cache, &mov, &p), true);
     }
 
     #[test]
@@ -329,7 +331,7 @@ mod test {
         ];
         println!("Field:\n{}", field);
 
-        let cache = field.precompute_conflict(&Piece::T);
+        let mut cache: ConflictCache = [[0; 20]; 4]; 
 
         for r in 0..4 {
             println!("orientation: {r}\n");
@@ -348,7 +350,7 @@ mod test {
                     if field.m[y as usize] & 1 << x > 0 {
                         print!("# ");
                     } else {
-                        print!("{} ", if Field::check_conflict(cache, &m) { 'x' } else { '.' });
+                        print!("{} ", if field.check_conflict(&mut cache, &m, &Piece::T) { 'x' } else { '.' });
                     }
                 }
                 println!();
@@ -386,16 +388,16 @@ mod test {
         let mut mov: Move = Move::new();
         let p: Piece = Piece::L;
         let h: Piece = Piece::L;
-        let conflict_cache = (field.precompute_conflict(&p), field.precompute_conflict(&h));
+        let mut cache: (ConflictCache, ConflictCache) = ([[0; 20]; 4], [[0; 20]; 4]);
 
-        mov.apply_key(&Key::Cw, conflict_cache, &field, &p, &h);
-        mov.apply_key(&Key::Left, conflict_cache, &field, &p, &h);
-        mov.apply_key(&Key::Left, conflict_cache, &field, &p, &h);
-        mov.apply_key(&Key::Left, conflict_cache, &field, &p, &h);
-        mov.apply_key(&Key::Left, conflict_cache, &field, &p, &h);
+        mov.apply_key(&Key::Cw, &mut cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, &mut cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, &mut cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, &mut cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, &mut cache, &field, &p, &h);
         //mov.apply_key(&Key::SoftDrop, conflict_cache, &field, &p, &h);
         //mov.apply_key(&Key::Ccw, conflict_cache, &field, &p, &h);
-        mov.apply_key(&Key::HardDrop, conflict_cache, &field, &p, &h);
+        mov.apply_key(&Key::HardDrop, &mut cache, &field, &p, &h);
 
         println!("{:?}", mov);
         field = field.apply_move(&mov, &p, &h).unwrap();
@@ -434,9 +436,9 @@ mod test {
             0b1_1_1_1_1_0_0_0_0_0,
             0b1_1_1_1_1_1_1_0_0_0,
         ];
-        let cache = field.precompute_conflict(&Piece::O);
+        let cache: ConflictCache = [[0; 20]; 4]; 
 
-        m.apply_key(&Key::HardDrop, (cache, cache), &field, &Piece::L, &Piece::L);
+        m.apply_key(&Key::HardDrop, &mut (cache, cache), &field, &Piece::L, &Piece::L);
 
         field = field.apply_move(&m, &Piece::O, &Piece::O).unwrap();
         println!("{}", field);

@@ -106,12 +106,12 @@ mod tests {
         crate::bench_reset();
 
         let mut state: State = State::new();
-        state.pieces.push_back(Piece::T);
-        state.pieces.push_back(Piece::O);
-        state.pieces.push_back(Piece::S);
         state.pieces.push_back(Piece::Z);
+        state.pieces.push_back(Piece::I);
+        state.pieces.push_back(Piece::J);
+        state.pieces.push_back(Piece::L);
         state.pieces.push_back(Piece::S);
-        state.hold = Piece::J;
+        //state.hold = Piece::J;
 
         state.field.m = [   
             0b0_0_0_0_0_0_0_0_0_0,
@@ -130,16 +130,16 @@ mod tests {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_1_0_0,
-            0b0_0_0_0_1_0_0_1_1_0,
-            0b1_1_1_1_1_0_0_0_1_1,
-            0b1_1_1_1_1_1_0_1_1_1,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b1_1_0_0_0_0_0_0_0_0,
+            0b1_1_0_0_0_0_0_0_0_0,
         ];
 
         bench_increment_solve();
         let start = if cfg!(feature = "bench") { Some(Instant::now()) } else { None };
 
-        if let Some(out) = solve(&state, &Config::new(0, crate::evaluator::EvaluatorMode::Norm)) {
+        if let Some(out) = solve(&state, &Config::new(3, crate::evaluator::EvaluatorMode::Norm)) {
             
             // Log out result
             println!("result score: \x1b[1m{}\x1b[0m", out.2);

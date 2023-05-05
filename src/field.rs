@@ -50,32 +50,37 @@ impl Field {
             for row in 0..n {
                 let shift: u8 = (n * (n - 1 - row)) as u8;
                 let bitseg: u16 = reverse_bin( (( p_map & (mask << shift) ) >> shift) as u16 , n as u8 );
+                if bitseg == 0 {
+                    continue
+                }
                 for y in 0..20 {
                     for x in 0..10 {
                         let c_x: i8 = x as i8 - n_half as i8;
-                        let c_y = (y + n_half) as i32 - row as i32; 
+                        let r_y = (y + row) as i32 - n_half as i32; 
                         
                         // If out of bounds vertically 
-                        if c_y < 0 || c_y >= 20 { continue }
-                    
+                        if r_y < 0 || r_y >= 20 { 
+                            map[r][y as usize] |= 1 << x; 
+                            continue
+                        }
 
                         // If out of bounds horizontally 
                         // Left
                         if c_x < 0 && bitseg & ((1 << (-c_x)) - 1) > 0  {
-                            map[r][c_y as usize] |= 1 << x; 
+                            map[r][y as usize] |= 1 << x; 
                             continue
                         }
                         let bitseg = if c_x > 0 { bitseg << c_x } else { bitseg >> -c_x };
 
                         // Right
                         if  bitseg > (1 << 10) -1 {
-                            map[r][c_y as usize] |= 1 << x;
+                            map[r][y as usize] |= 1 << x;
                             continue
                         }
 
                         // If conflict
-                        if bitseg & self.m[y] > 0 {  
-                            map[r][c_y as usize] |= 1 << x;
+                        if bitseg & self.m[r_y as usize] > 0 {  
+                            map[r][y as usize] |= 1 << x;
                         }
                     }
                 }
@@ -113,26 +118,26 @@ impl Field {
             }
             // If out of board on upper edge
             if  c_y + y < 0 {
-                return Err(());
-                //panic!("@ Field.apply_move: out of board on upper edge");
+                //return Err(());
+                panic!("@ Field.apply_move: out of board on upper edge");
             }
             // If out of board on bottom edge
             if c_y + y >= 20 {
-                return Err(());
-                //panic!("@ Field.apply_move: out of board on bottom edge");
+                //return Err(());
+                panic!("@ Field.apply_move: out of board on bottom edge");
             }
             // If out of board on left edge
             if c_x < 0 && bitseg & ((1 << (-c_x)) - 1) > 0  {
-                return Err(());
-                //panic!("@ Field.apply_move: out of board on left edge");
+                //return Err(());
+                panic!("@ Field.apply_move: out of board on left edge");
             }
             // Shift according to c_x
             let bitseg = if c_x > 0 { bitseg << c_x } else { bitseg >> -c_x };
             //dev_log!("c_x: {}, final bitseg: {:05b}", c_x, bitseg);
             // If out of board on right edge
             if bitseg > (1 << 10)-1 {
-                return Err(());
-                //panic!("@ Field.apply_move: out of board on right edge");
+                //return Err(());
+                panic!("@ Field.apply_move: out of board on right edge");
             }
             field.m[(c_y + y) as usize] |= bitseg;
         };
@@ -300,7 +305,7 @@ mod test {
     fn field_conflict_map_test () {
          
         let mut field: Field = Field::new();
-        field.m = [   
+        field.m = [
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
@@ -317,10 +322,10 @@ mod test {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_1_0_0,
-            0b0_0_0_0_1_0_0_1_1_0,
-            0b1_1_1_1_1_0_0_0_1_1,
-            0b1_1_1_1_1_1_0_1_1_1,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b1_1_1_1_1_0_0_0_0_0,
+            0b1_1_1_1_1_1_1_0_0_0,
         ];
         println!("Field:\n{}", field);
 
@@ -340,7 +345,11 @@ mod test {
                         tspin: false,
                         lock: false
                     };
-                    print!("{} ", if Field::check_conflict(cache, &m) { '#' } else { '.' });
+                    if field.m[y as usize] & 1 << x > 0 {
+                        print!("# ");
+                    } else {
+                        print!("{} ", if Field::check_conflict(cache, &m) { 'x' } else { '.' });
+                    }
                 }
                 println!();
             }
@@ -350,8 +359,7 @@ mod test {
     #[test] 
     fn field_apply_move_test () {
         let mut field: Field = Field::new();
-
-        field.m = [   
+        field.m = [
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
@@ -368,26 +376,29 @@ mod test {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_1_0_0,
-            0b0_0_0_0_1_0_0_1_1_0,
-            0b1_1_1_1_1_0_0_0_1_1,
-            0b1_1_1_1_1_1_0_1_1_1,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b1_1_1_1_1_0_0_0_0_0,
+            0b1_1_1_1_1_1_1_0_0_0,
         ];
 
 
         let mut mov: Move = Move::new();
-        let p: Piece = Piece::T;
-        let h: Piece = Piece::T;
+        let p: Piece = Piece::L;
+        let h: Piece = Piece::L;
         let conflict_cache = (field.precompute_conflict(&p), field.precompute_conflict(&h));
 
-        mov.apply_key(&Key::Ccw, conflict_cache, &field, &p, &h);
+        mov.apply_key(&Key::Cw, conflict_cache, &field, &p, &h);
         mov.apply_key(&Key::Left, conflict_cache, &field, &p, &h);
-        mov.apply_key(&Key::SoftDrop, conflict_cache, &field, &p, &h);
-        mov.apply_key(&Key::Ccw, conflict_cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, conflict_cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, conflict_cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, conflict_cache, &field, &p, &h);
+        //mov.apply_key(&Key::SoftDrop, conflict_cache, &field, &p, &h);
+        //mov.apply_key(&Key::Ccw, conflict_cache, &field, &p, &h);
         mov.apply_key(&Key::HardDrop, conflict_cache, &field, &p, &h);
 
-        field = field.apply_move(&mov, &p, &h).unwrap();
         println!("{:?}", mov);
+        field = field.apply_move(&mov, &p, &h).unwrap();
         println!("{}", field);
         
         //assert_eq!(field.m[17], 0b00000_00000);
@@ -420,12 +431,12 @@ mod test {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b1_1_1_1_0_0_1_1_1_1,
-            0b1_1_1_1_0_0_1_1_1_1,
+            0b1_1_1_1_1_0_0_0_0_0,
+            0b1_1_1_1_1_1_1_0_0_0,
         ];
         let cache = field.precompute_conflict(&Piece::O);
 
-        m.apply_key(&Key::HardDrop, (cache, cache), &field, &Piece::O, &Piece::O);
+        m.apply_key(&Key::HardDrop, (cache, cache), &field, &Piece::L, &Piece::L);
 
         field = field.apply_move(&m, &Piece::O, &Piece::O).unwrap();
         println!("{}", field);

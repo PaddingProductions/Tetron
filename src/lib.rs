@@ -125,7 +125,7 @@ impl<'a> Bencher<'a> {
 }
 impl<'a> Drop for Bencher<'a> {
     fn drop (&mut self) {
-        let dt = self.start.elapsed().as_micros();
+        let dt = self.start.elapsed().as_nanos();
         self.data.0 = (self.data.0 * self.data.1 + dt) / (self.data.1+1);
         self.data.1 += 1;
     }
@@ -136,6 +136,7 @@ struct BenchData {
     evaluator: (u128, u128),
     gen_moves: (u128, u128),
     apply_key: (u128, u128),
+    conflict: (u128, u128),
     solve_d0: (u128, u128),
 }
 static mut BENCH_DATA: BenchData = BenchData {
@@ -143,6 +144,7 @@ static mut BENCH_DATA: BenchData = BenchData {
     evaluator: (0, 0),
     gen_moves: (0, 0),
     apply_key: (0, 0),
+    conflict: (0, 0),
     solve_d0: (0, 0),
 };
 /// Resets globally stored bench data. Developer Tool.
@@ -156,6 +158,7 @@ pub fn bench_reset () {
             evaluator: (0, 0),
             gen_moves: (0, 0),
             apply_key: (0, 0),
+            conflict: (0, 0),
             solve_d0: (0, 0),
         };
     }
@@ -181,5 +184,6 @@ pub fn print_bench_result () { unsafe {
     {let t = d.evaluator; println!("evaluator: avg dt: {}, cnt: {}, total dt: {:.3}", t.0, t.1, (t.0*t.1/d.solves) as f64/1000.0);}
     {let t = d.gen_moves; println!("gen_moves: avg dt: {}, cnt: {}, total dt: {:.3}", t.0, t.1, (t.0*t.1/d.solves) as f64/1000.0);}
     {let t = d.apply_key; println!("apply_key: avg dt: {}, cnt: {}, total dt: {:.3}", t.0, t.1, (t.0*t.1/d.solves) as f64/1000.0);}
+    {let t = d.conflict; println!("conflict: avg dt: {}, cnt: {}, total dt: {:.3}", t.0, t.1, (t.0*t.1/d.solves) as f64/1000.0);}
     {let t = d.solve_d0; println!("solve_d0: avg dt: {}, cnt: {}, total dt: {:.3}", t.0, t.1, (t.0*t.1/d.solves) as f64/1000.0);}
 }}

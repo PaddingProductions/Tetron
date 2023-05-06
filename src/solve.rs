@@ -139,7 +139,7 @@ mod tests {
         bench_increment_solve();
         let start = if cfg!(feature = "bench") { Some(Instant::now()) } else { None };
 
-        if let Some(out) = solve(&state, &Config::new(3, crate::evaluator::EvaluatorMode::Norm)) {
+        if let Some(out) = solve(&state, &Config::new(0, crate::evaluator::EvaluatorMode::Norm)) {
             
             // Log out result
             println!("result score: \x1b[1m{}\x1b[0m", out.2);

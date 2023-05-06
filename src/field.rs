@@ -39,7 +39,13 @@ impl Field {
     }
 
     pub fn check_conflict(&self, cache: &mut ConflictCache, m: &Move, p: &Piece) -> bool {
-        if m.y < 0 || m.y >= 20 || m.x < 0 || m.x >= 10 {
+        let _bencher: Option<crate::Bencher> = if cfg!(feature = "bench") {
+            unsafe {
+                Some( crate::Bencher::new( &mut crate::BENCH_DATA.conflict ) )
+            }
+        } else {None};
+
+       if m.y < 0 || m.y >= 20 || m.x < 0 || m.x >= 10 {
             return true;
         }
         if cache[m.r as usize][m.y as usize] & 1 << (10 + m.x as usize) == 0 {
@@ -52,9 +58,6 @@ impl Field {
     }
 
     fn compute_conflict (&self, m: &Move, p: &Piece) -> bool {
-        unsafe {
-            COUNTER += 1;
-        }
         let map: &[u16; 5] = &PIECE_MAP[*p as usize][m.r as usize];
         let n: i8 = if *p == Piece::I {5} else {3};
         let c_x: i8 = m.x - n/2;

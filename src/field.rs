@@ -2,6 +2,7 @@ use super::{Piece, Move, Props};
 
 use std::fmt;
 
+pub static mut COUNTER: u128 = 0;
 /// Effective allias for `[u16; 20]`, representing the game board.
 /// 
 /// Minial memory footprint.
@@ -36,7 +37,6 @@ impl Field {
             m: [0; 20],
         }
     }
-    
 
     pub fn check_conflict(&self, cache: &mut ConflictCache, m: &Move, p: &Piece) -> bool {
         if m.y < 0 || m.y >= 20 || m.x < 0 || m.x >= 10 {
@@ -52,17 +52,18 @@ impl Field {
     }
 
     fn compute_conflict (&self, m: &Move, p: &Piece) -> bool {
-        let map: &u32 = &PIECE_MAP[*p as usize][m.r as usize];
+        unsafe {
+            COUNTER += 1;
+        }
+        let map: &[u16; 5] = &PIECE_MAP[*p as usize][m.r as usize];
         let n: i8 = if *p == Piece::I {5} else {3};
         let c_x: i8 = m.x - n/2;
         let c_y: i8 = m.y - n/2;
-        let mask = (1 << n) - 1;
         
         //dev_log!("checking conflict for move:{:?}, piece: {:?}", m, p);
         for y in 0..n {
             // The bits representing a single row of the piece map
-            let shift: u8 = (n * (n - 1 - y)) as u8;
-            let bitseg: u16 = reverse_bin( (( map & (mask << shift) ) >> shift) as u16 , n as u8 );
+            let bitseg: u16 = map[y as usize].reverse_bits() >> (16 - n);
             //dev_log!("c_x: {c_x}, map: {:#011b}, bitseg: {:#07b}", PIECE_MAP[*p as usize][m.r as usize], bitseg);
 
             // If empty row on piece map
@@ -101,17 +102,15 @@ impl Field {
     pub fn apply_move (self: &Self, m: &Move, piece: &Piece, hold: &Piece) -> Result<Field, ()> {
         let mut field = self.clone();
         let p: &Piece = if m.hold {hold} else {piece};
-        let map: &u32 = &PIECE_MAP[*p as usize][m.r as usize];
+        let map: &[u16; 5] = &PIECE_MAP[*p as usize][m.r as usize];
         let n: i8 = if *p == Piece::I {5} else {3};
         let c_x: i8 = m.x - n/2;
         let c_y: i8 = m.y - n/2;
-        let mask = (1 << n) - 1;
         
         //dev_log!("applying move:{:?}, piece:{:?}", m, p);
         for y in 0..n {
             // The bits representing a single row of the piece map
-            let shift: u8 = (n * (n - 1 - y)) as u8;
-            let bitseg: u16 = reverse_bin( (( map & (mask << shift) ) >> shift) as u16 , n as u8 );
+            let bitseg: u16 = map[y as usize].reverse_bits() >> (16 - n);
             //dev_log!("c_x: {c_x}, map: {:09b}, bitseg: {:05b}", PIECE_MAP[*p as usize][m.r as usize], bitseg);
 
             // If empty row on piece map
@@ -241,48 +240,48 @@ pub const B2B_TABLE: [[[u32; 10]; 4]; 4] = [
 /// Binary representation of piece shapes.
 ///
 /// Visually inversed, due to bit order.
-pub const PIECE_MAP: [[u32; 4]; 7] = [
+pub const PIECE_MAP: [[[u16; 5]; 4]; 7] = [
     [ // J
-        0b100_111_000,
-        0b011_010_010,
-        0b000_111_001,
-        0b010_010_110
+        [0b100, 0b111, 0b000, 0, 0],
+        [0b011, 0b010, 0b010, 0, 0],
+        [0b000, 0b111, 0b001, 0, 0],
+        [0b010, 0b010, 0b110, 0, 0]
     ],
     [ // L
-        0b001_111_000,
-        0b010_010_011,
-        0b000_111_100,
-        0b110_010_010
+        [0b001, 0b111, 0b000, 0, 0],
+        [0b010, 0b010, 0b011, 0, 0],
+        [0b000, 0b111, 0b100, 0, 0],
+        [0b110, 0b010, 0b010, 0, 0]
     ], 
     [ // S
-        0b011_110_000,
-        0b010_011_001,
-        0b000_011_110,
-        0b100_110_010
+        [0b011, 0b110, 0b000, 0, 0],
+        [0b010, 0b011, 0b001, 0, 0],
+        [0b000, 0b011, 0b110, 0, 0],
+        [0b100, 0b110, 0b010, 0, 0]
     ], 
     [ // Z
-        0b110_011_000,
-        0b001_011_010,
-        0b000_110_011,
-        0b010_110_100
+        [0b110, 0b011, 0b000, 0, 0],
+        [0b001, 0b011, 0b010, 0, 0],
+        [0b000, 0b110, 0b011, 0, 0],
+        [0b010, 0b110, 0b100, 0, 0]
     ], 
     [ // T
-        0b010_111_000,
-        0b010_011_010,
-        0b000_111_010,
-        0b010_110_010
+        [0b010, 0b111, 0b000, 0, 0],
+        [0b010, 0b011, 0b010, 0, 0],
+        [0b000, 0b111, 0b010, 0, 0],
+        [0b010, 0b110, 0b010, 0, 0]
     ], 
     [ // I
-        0b00000_00000_01111_00000_00000,
-        0b00000_00100_00100_00100_00100,
-        0b00000_00000_00000_01111_00000,
-        0b00100_00100_00100_00100_00000,
+        [0b00000, 0b00000, 0b01111, 0b00000, 0b00000],
+        [0b00000, 0b00100, 0b00100, 0b00100, 0b00100],
+        [0b00000, 0b00000, 0b00000, 0b01111, 0b00000],
+        [0b00100, 0b00100, 0b00100, 0b00100, 0b00000]
     ],
     [ // O
-        0b011_011_000,
-        0b000_011_011,
-        0b000_110_110,
-        0b110_110_000
+        [0b011, 0b011, 0b000, 0, 0],
+        [0b000, 0b011, 0b011, 0, 0],
+        [0b000, 0b110, 0b110, 0, 0],
+        [0b110, 0b110, 0b000, 0, 0]
     ], 
 ];
 

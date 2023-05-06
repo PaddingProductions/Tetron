@@ -147,6 +147,9 @@ mod tests {
             println!("move: {:?}", &out.1);
             println!("keys: {:?}", &out.1.parse_list());
             println!("prop: {:?}", &out.0.props);
+            unsafe {
+                println!("conflict computations: {}", crate::field::COUNTER);
+            }
 
             // Time
             if let Some(time) = start {

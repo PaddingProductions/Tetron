@@ -2,14 +2,16 @@ use super::{Piece, Move, Props};
 
 use std::fmt;
 
+pub static mut COUNTER: u128 = 0;
 /// Effective allias for `[u16; 20]`, representing the game board.
 /// 
 /// Minial memory footprint.
 /// Implements getting, setting, and helper functions.
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Field {
-    pub m: [u16; 20]
+    pub m: [u16; 20],
 }
+pub type ConflictCache = [[u32; 20]; 4];
 impl fmt::Display for Field {
     fn fmt (&self, f: &mut fmt::Formatter) -> fmt::Result { 
         for y in 0..20 {
@@ -27,27 +29,41 @@ impl fmt::Display for Field {
     }
 }
 
+// (c_x, c_y) denotes the corner of the map. This is what is typically used in computation
+// (x, y) denotes the center of the map. This is what is stored in Moves
 impl Field {
     pub fn new () -> Self {
         Self {
             m: [0; 20],
         }
     }
-    /// Given a piece and the coresponding movement, return if it conflicts with self.
-    ///
-    /// Heavy bitmasking and manipulation.
-    pub fn check_conflict (self: &Self, m: &Move, p: &Piece) -> bool {
-        let map: &u32 = &PIECE_MAP[*p as usize][m.r as usize];
+
+    pub fn check_conflict(&self, cache: &mut ConflictCache, m: &Move, p: &Piece) -> bool {
+        if m.y < 0 || m.y >= 20 || m.x < 0 || m.x >= 10 {
+            return true;
+        }
+        if cache[m.r as usize][m.y as usize] & 1 << (10 + m.x as usize) == 0 {
+            cache[m.r as usize][m.y as usize] |= 1 << (10 + m.x as usize);
+            if self.compute_conflict(m, p) {
+                cache[m.r as usize][m.y as usize] |= 1 << (m.x as usize);
+            }
+        } 
+        cache[m.r as usize][m.y as usize] & 1 << (m.x as usize) > 0
+    }
+
+    fn compute_conflict (&self, m: &Move, p: &Piece) -> bool {
+        unsafe {
+            COUNTER += 1;
+        }
+        let map: &[u16; 5] = &PIECE_MAP[*p as usize][m.r as usize];
         let n: i8 = if *p == Piece::I {5} else {3};
         let c_x: i8 = m.x - n/2;
         let c_y: i8 = m.y - n/2;
-        let mask = (1 << n) - 1;
         
         //dev_log!("checking conflict for move:{:?}, piece: {:?}", m, p);
         for y in 0..n {
             // The bits representing a single row of the piece map
-            let shift: u8 = (n * (n - 1 - y)) as u8;
-            let bitseg: u16 = reverse_bin( (( map & (mask << shift) ) >> shift) as u16 , n as u8 );
+            let bitseg: u16 = map[y as usize].reverse_bits() >> (16 - n);
             //dev_log!("c_x: {c_x}, map: {:#011b}, bitseg: {:#07b}", PIECE_MAP[*p as usize][m.r as usize], bitseg);
 
             // If empty row on piece map
@@ -81,22 +97,20 @@ impl Field {
         };
         false
     }   
-    
+
     /// Pastes a given piece onto a clone of self according to given move, returning said clone.
     pub fn apply_move (self: &Self, m: &Move, piece: &Piece, hold: &Piece) -> Result<Field, ()> {
         let mut field = self.clone();
         let p: &Piece = if m.hold {hold} else {piece};
-        let map: &u32 = &PIECE_MAP[*p as usize][m.r as usize];
+        let map: &[u16; 5] = &PIECE_MAP[*p as usize][m.r as usize];
         let n: i8 = if *p == Piece::I {5} else {3};
         let c_x: i8 = m.x - n/2;
         let c_y: i8 = m.y - n/2;
-        let mask = (1 << n) - 1;
         
         //dev_log!("applying move:{:?}, piece:{:?}", m, p);
         for y in 0..n {
             // The bits representing a single row of the piece map
-            let shift: u8 = (n * (n - 1 - y)) as u8;
-            let bitseg: u16 = reverse_bin( (( map & (mask << shift) ) >> shift) as u16 , n as u8 );
+            let bitseg: u16 = map[y as usize].reverse_bits() >> (16 - n);
             //dev_log!("c_x: {c_x}, map: {:09b}, bitseg: {:05b}", PIECE_MAP[*p as usize][m.r as usize], bitseg);
 
             // If empty row on piece map
@@ -105,26 +119,26 @@ impl Field {
             }
             // If out of board on upper edge
             if  c_y + y < 0 {
-                return Err(());
-                //panic!("@ Field.apply_move: out of board on upper edge");
+                //return Err(());
+                panic!("@ Field.apply_move: out of board on upper edge");
             }
             // If out of board on bottom edge
             if c_y + y >= 20 {
-                return Err(());
-                //panic!("@ Field.apply_move: out of board on bottom edge");
+                //return Err(());
+                panic!("@ Field.apply_move: out of board on bottom edge");
             }
             // If out of board on left edge
             if c_x < 0 && bitseg & ((1 << (-c_x)) - 1) > 0  {
-                return Err(());
-                //panic!("@ Field.apply_move: out of board on left edge");
+                //return Err(());
+                panic!("@ Field.apply_move: out of board on left edge");
             }
             // Shift according to c_x
             let bitseg = if c_x > 0 { bitseg << c_x } else { bitseg >> -c_x };
             //dev_log!("c_x: {}, final bitseg: {:05b}", c_x, bitseg);
             // If out of board on right edge
             if bitseg > (1 << 10)-1 {
-                return Err(());
-                //panic!("@ Field.apply_move: out of board on right edge");
+                //return Err(());
+                panic!("@ Field.apply_move: out of board on right edge");
             }
             field.m[(c_y + y) as usize] |= bitseg;
         };
@@ -226,48 +240,48 @@ pub const B2B_TABLE: [[[u32; 10]; 4]; 4] = [
 /// Binary representation of piece shapes.
 ///
 /// Visually inversed, due to bit order.
-pub const PIECE_MAP: [[u32; 4]; 7] = [
+pub const PIECE_MAP: [[[u16; 5]; 4]; 7] = [
     [ // J
-        0b100_111_000,
-        0b011_010_010,
-        0b000_111_001,
-        0b010_010_110
+        [0b100, 0b111, 0b000, 0, 0],
+        [0b011, 0b010, 0b010, 0, 0],
+        [0b000, 0b111, 0b001, 0, 0],
+        [0b010, 0b010, 0b110, 0, 0]
     ],
     [ // L
-        0b001_111_000,
-        0b010_010_011,
-        0b000_111_100,
-        0b110_010_010
+        [0b001, 0b111, 0b000, 0, 0],
+        [0b010, 0b010, 0b011, 0, 0],
+        [0b000, 0b111, 0b100, 0, 0],
+        [0b110, 0b010, 0b010, 0, 0]
     ], 
     [ // S
-        0b011_110_000,
-        0b010_011_001,
-        0b000_011_110,
-        0b100_110_010
+        [0b011, 0b110, 0b000, 0, 0],
+        [0b010, 0b011, 0b001, 0, 0],
+        [0b000, 0b011, 0b110, 0, 0],
+        [0b100, 0b110, 0b010, 0, 0]
     ], 
     [ // Z
-        0b110_011_000,
-        0b001_011_010,
-        0b000_110_011,
-        0b010_110_100
+        [0b110, 0b011, 0b000, 0, 0],
+        [0b001, 0b011, 0b010, 0, 0],
+        [0b000, 0b110, 0b011, 0, 0],
+        [0b010, 0b110, 0b100, 0, 0]
     ], 
     [ // T
-        0b010_111_000,
-        0b010_011_010,
-        0b000_111_010,
-        0b010_110_010
+        [0b010, 0b111, 0b000, 0, 0],
+        [0b010, 0b011, 0b010, 0, 0],
+        [0b000, 0b111, 0b010, 0, 0],
+        [0b010, 0b110, 0b010, 0, 0]
     ], 
     [ // I
-        0b00000_00000_01111_00000_00000,
-        0b00000_00100_00100_00100_00100,
-        0b00000_00000_00000_01111_00000,
-        0b00100_00100_00100_00100_00000,
+        [0b00000, 0b00000, 0b01111, 0b00000, 0b00000],
+        [0b00000, 0b00100, 0b00100, 0b00100, 0b00100],
+        [0b00000, 0b00000, 0b00000, 0b01111, 0b00000],
+        [0b00100, 0b00100, 0b00100, 0b00100, 0b00000]
     ],
     [ // O
-        0b011_011_000,
-        0b000_011_011,
-        0b000_110_110,
-        0b110_110_000
+        [0b011, 0b011, 0b000, 0, 0],
+        [0b000, 0b011, 0b011, 0, 0],
+        [0b000, 0b110, 0b110, 0, 0],
+        [0b110, 0b110, 0b000, 0, 0]
     ], 
 ];
 
@@ -281,17 +295,72 @@ mod test {
         let field: Field = Field::new();
         let mut mov: Move = Move::new();
         let p: Piece = Piece::L;
+        let mut cache: ConflictCache = [[0; 20]; 4]; 
 
         mov.y = 19;
         mov.x = 0;
-        assert_eq!(field.check_conflict(&mov, &p), true);
+        assert_eq!(field.check_conflict(&mut cache, &mov, &p), true);
+    }
+
+    #[test]
+    fn field_conflict_map_test () {
+         
+        let mut field: Field = Field::new();
+        field.m = [
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b1_1_1_1_1_0_0_0_0_0,
+            0b1_1_1_1_1_1_1_0_0_0,
+        ];
+        println!("Field:\n{}", field);
+
+        let mut cache: ConflictCache = [[0; 20]; 4]; 
+
+        for r in 0..4 {
+            println!("orientation: {r}\n");
+            for y in 0..20 {
+                for x in 0..10 {
+                    let m = Move {
+                        x,
+                        y,
+                        r, 
+                        s: -1,
+                        list: 0, 
+                        hold: false,
+                        tspin: false,
+                        lock: false
+                    };
+                    if field.m[y as usize] & 1 << x > 0 {
+                        print!("# ");
+                    } else {
+                        print!("{} ", if field.check_conflict(&mut cache, &m, &Piece::T) { 'x' } else { '.' });
+                    }
+                }
+                println!();
+            }
+        }
     }
 
     #[test] 
     fn field_apply_move_test () {
         let mut field: Field = Field::new();
-
-        field.m = [   
+        field.m = [
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
@@ -308,25 +377,29 @@ mod test {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b0_0_0_0_0_0_0_1_0_0,
-            0b0_0_0_0_1_0_0_1_1_0,
-            0b1_1_1_1_1_0_0_0_1_1,
-            0b1_1_1_1_1_1_0_1_1_1,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b0_0_0_0_0_0_0_0_0_0,
+            0b1_1_1_1_1_0_0_0_0_0,
+            0b1_1_1_1_1_1_1_0_0_0,
         ];
 
 
         let mut mov: Move = Move::new();
-        let p: Piece = Piece::T;
-        let h: Piece = Piece::T;
+        let p: Piece = Piece::L;
+        let h: Piece = Piece::L;
+        let mut cache: (ConflictCache, ConflictCache) = ([[0; 20]; 4], [[0; 20]; 4]);
 
-        mov.apply_key(&Key::Ccw, &field, &p, &h);
-        mov.apply_key(&Key::Left, &field, &p, &h);
-        mov.apply_key(&Key::SoftDrop, &field, &p, &h);
-        mov.apply_key(&Key::Ccw, &field, &p, &h);
-        mov.apply_key(&Key::HardDrop, &field, &p, &h);
+        mov.apply_key(&Key::Cw, &mut cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, &mut cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, &mut cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, &mut cache, &field, &p, &h);
+        mov.apply_key(&Key::Left, &mut cache, &field, &p, &h);
+        //mov.apply_key(&Key::SoftDrop, conflict_cache, &field, &p, &h);
+        //mov.apply_key(&Key::Ccw, conflict_cache, &field, &p, &h);
+        mov.apply_key(&Key::HardDrop, &mut cache, &field, &p, &h);
 
-        field = field.apply_move(&mov, &p, &h).unwrap();
         println!("{:?}", mov);
+        field = field.apply_move(&mov, &p, &h).unwrap();
         println!("{}", field);
         
         //assert_eq!(field.m[17], 0b00000_00000);
@@ -359,11 +432,12 @@ mod test {
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
             0b0_0_0_0_0_0_0_0_0_0,
-            0b1_1_1_1_0_0_1_1_1_1,
-            0b1_1_1_1_0_0_1_1_1_1,
+            0b1_1_1_1_1_0_0_0_0_0,
+            0b1_1_1_1_1_1_1_0_0_0,
         ];
-         
-        m.apply_key(&Key::HardDrop, &field, &Piece::O, &Piece::O);
+        let cache: ConflictCache = [[0; 20]; 4]; 
+
+        m.apply_key(&Key::HardDrop, &mut (cache, cache), &field, &Piece::L, &Piece::L);
 
         field = field.apply_move(&m, &Piece::O, &Piece::O).unwrap();
         println!("{}", field);

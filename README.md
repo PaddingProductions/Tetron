@@ -2,4 +2,4 @@
 
 A Tetris bot written in Rust.<br>
 
-Play against it [here](https://paddingproductions.github.io/Cestris/static-page.html)!
+Play against it [here](https://shine00chang.github.io/Cestris/index.html)!

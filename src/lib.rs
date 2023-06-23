@@ -83,7 +83,7 @@ pub enum Key {
 ///
 /// Non-intuitive attributes:
 /// `sum_no_atk`: Downstack lines without an attack.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash)]
 pub struct Props {
     pub sum_atk: u8,
     pub sum_ds: u8,

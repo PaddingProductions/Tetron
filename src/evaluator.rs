@@ -54,8 +54,8 @@ const WEIGHTS_ATK: Weights = Weights {
     well_odd_par: -30.0,
     well_flat_parity: 40.0, 
     tspin_flat_bonus: 40.0,
-    tspin_dist: -2.0,
-    tspin_completeness: 4.0,
+    tspin_dist: -0.0,
+    tspin_completeness: 0.0,
     average_h : -1.0,
     sum_attack: 25.0,
     sum_downstack: 15.0,
@@ -385,6 +385,9 @@ pub fn evaluate (state: &State, mode: EvaluatorMode) -> f32 {
     // clear and attack
     {
         dev_log!(ln, "atk: {}, ds: {}; sum_atk: {}, sum_ds: {}", p.atk, p.ds, p.sum_atk, p.sum_ds);
+        if p.sum_ds > 100 || p.sum_atk > 100 {
+            println!("atk: {}, ds: {}; sum_atk: {}, sum_ds: {}", p.atk, p.ds, p.sum_atk, p.sum_ds);
+        }
         score += (p.sum_atk as i8 - p.sum_ds as i8) as f32 * weights.eff;
 
         score += p.sum_atk as f32 * weights.sum_attack;

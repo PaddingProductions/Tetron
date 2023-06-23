@@ -31,6 +31,9 @@ impl State {
     /// Sets particular attributes according to the property inheritance policies.
     /// Used to spawn a child state to set a piece placement on.
     pub fn clone_as_child (&self, mut field: Field, mov: &Move) -> State {
+        if self.props.atk < 0 {
+            println!("goofy atk, checkit: {}", self.props.atk);
+        }
         let mut props: Props = Props { 
             sum_atk: self.props.sum_atk + self.props.atk,
             sum_ds: self.props.sum_ds + self.props.ds,
